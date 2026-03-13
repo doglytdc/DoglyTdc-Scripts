@@ -1,10 +1,12 @@
-// DoglyTdc Webhook Helper
+// DoglyTdc Webhook Helper - Pre-configured
 (function(global){
   "use strict";
+  var W="https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook";
+  var T="843f642001452556ca8073faa054ecae13959100f8f6a93a";
   function createClient(opts){
     opts = opts || {};
-    var webhookUrl = opts.webhookUrl || "__WEBHOOK_URL__";
-    var webhookToken = opts.webhookToken || "__WEBHOOK_TOKEN__";
+    var webhookUrl = opts.webhookUrl || W;
+    var webhookToken = opts.webhookToken || T;
     function request(action, payload){
       if(!webhookToken) return Promise.resolve({ success: false, error: "webhook_not_configured" });
       return fetch(webhookUrl, {
@@ -19,6 +21,7 @@
       loadConfig: function(){ return request("load_config"); },
       saveConfig: function(config){ return request("save_config", { config: config || {} }); },
       syncKey: function(apiKey, provider){ return request("sync_key", { api_key: apiKey, provider: provider }); },
+      ai: function(messages, provider){ return request("ai", { messages: messages, provider: provider }); },
     };
   }
   global.DoglyWebhook = { createClient: createClient };
