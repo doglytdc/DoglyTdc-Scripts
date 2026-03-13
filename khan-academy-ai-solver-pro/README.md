@@ -4,4 +4,4 @@ Resolve questões do Khan Academy automaticamente usando interceptação de API 
 
 - **Categoria:** game-hack
 - **Tipo:** javascript
-- **Sincronizado em:** 2026-03-09T21:35:41.234Z
+- **Sincronizado em:** 2026-03-13T17:09:59.563Z
