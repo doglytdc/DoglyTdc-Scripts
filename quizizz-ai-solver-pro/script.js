@@ -4,8 +4,8 @@
 "use strict";
 
 var CFG = {
-  webhookUrl: "__WEBHOOK_URL__",
-  webhookToken: "__WEBHOOK_TOKEN__",
+  webhookUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook",
+  webhookToken: "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03",
   manualKey: "",
   profileName: "DoglyTdc Solver",
   version: "15.0",
@@ -63,7 +63,7 @@ loadH2C();
 // ═══ USER PROFILE (DoglyTdc) ═══
 var userProfile = { name: null, avatar: null, loaded: false };
 function fetchUserProfile() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "__WEBHOOK_TOKEN__") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
@@ -95,7 +95,7 @@ function updateProfileUI() {
 
 // ═══ REMOTE CONFIG SYNC (DoglyTdc) ═══
 function loadRemoteConfig() {
-  if(!CFG.webhookUrl || CFG.webhookUrl === "__WEBHOOK_URL__" || !CFG.webhookToken || CFG.webhookToken === "__WEBHOOK_TOKEN__") return;
+  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
@@ -138,7 +138,7 @@ function loadRemoteConfig() {
 }
 
 function saveRemoteConfig() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "__WEBHOOK_TOKEN__") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
   var config = {
     apiKey: S.apiKey || "",
     settings: S.settings,
@@ -160,7 +160,7 @@ var S = {
   apiKey: CFG.manualKey || "",
   webhookUrl: CFG.webhookUrl,
   webhookToken: CFG.webhookToken,
-  useDogly: (CFG.webhookToken && CFG.webhookToken !== "__WEBHOOK_TOKEN__" && CFG.webhookToken.length > 5),
+  useDogly: (CFG.webhookToken && CFG.webhookToken !== "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03" && CFG.webhookToken.length > 5),
   solving: false,
   autoMode: false,
   autoInterval: null,
@@ -482,7 +482,7 @@ panel.innerHTML = [
     '<div class="qs-cfg-card highlight">',
       '<div class="qs-cfg-input-group">',
         '<div class="qs-cfg-input-label">', IC.key, ' Webhook Token</div>',
-        '<input type="text" class="qs-cfg-input" id="qs-wt" placeholder="Cole seu token de webhook..." value="', (S.webhookToken !== "__WEBHOOK_TOKEN__" ? S.webhookToken : ""), '">',
+        '<input type="text" class="qs-cfg-input" id="qs-wt" placeholder="Cole seu token de webhook..." value="', (S.webhookToken !== "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03" ? S.webhookToken : ""), '">',
         '<div class="qs-cfg-btns">',
           '<button class="qs-cfg-btn primary" id="qs-ws">', IC.link, ' Conectar</button>',
         '</div>',
@@ -700,7 +700,7 @@ panel.querySelector("#qs-ks").addEventListener("click", function(){
 panel.querySelector("#qs-ksync").addEventListener("click", function(){
   var nk = panel.querySelector("#qs-ki").value.trim() || S.apiKey;
   if(!nk || nk.length < 5) { setCfgStatus("qs-cfg-key-status", "Insira uma API Key primeiro", "error"); return; }
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "__WEBHOOK_TOKEN__") { setCfgStatus("qs-cfg-key-status", "Conecte ao DoglyTdc primeiro", "error"); return; }
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") { setCfgStatus("qs-cfg-key-status", "Conecte ao DoglyTdc primeiro", "error"); return; }
   setCfgStatus("qs-cfg-key-status", "Sincronizando com DoglyTdc...", "info");
   var provider = "groq";
   if(nk.indexOf("AIza") === 0) provider = "google";
