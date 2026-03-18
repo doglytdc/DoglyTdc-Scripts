@@ -1,4 +1,4 @@
-// Quizizz/Wayground AI Solver Pro v15 - DoglyTdc
+// Quizizz/Wayground AI - DoglyTdc
 // Alt=Show/Hide | D=Detect | R=Resolve+Auto | All Types | Drag Simulation | Passage
 (function(){
 "use strict";
@@ -8,7 +8,7 @@ var CFG = {
   webhookToken: "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03",
   manualKey: "",
   profileName: "DoglyTdc Solver",
-  version: "15.0",
+  version: "1.0",
   supabaseUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co",
   supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjc3l4enBkYm51eWVoaXplenZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzUwODQsImV4cCI6MjA4MDU1MTA4NH0.1_xuCxeV0NlMxQRhsNC_f_RYGbFYJZ9RKwYAB3e7vtM"
 };
