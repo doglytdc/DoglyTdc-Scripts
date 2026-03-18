@@ -2,6 +2,6 @@
 
 
 
-- **Categoria:** custom
+- **Categoria:** ai-hack
 - **Tipo:** javascript
-- **Sincronizado em:** 2026-03-18T23:05:28.529Z
+- **Sincronizado em:** 2026-03-18T23:07:18.307Z
