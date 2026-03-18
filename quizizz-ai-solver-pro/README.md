@@ -4,4 +4,4 @@ Resolve questões do Quizizz automaticamente usando IA. Suporta rotação de API
 
 - **Categoria:** game-hack
 - **Tipo:** javascript
-- **Sincronizado em:** 2026-03-13T18:32:32.739Z
+- **Sincronizado em:** 2026-03-18T17:19:32.694Z
