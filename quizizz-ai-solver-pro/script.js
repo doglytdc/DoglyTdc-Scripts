@@ -93,68 +93,7 @@ function updateProfileUI() {
   if(statusEl) { statusEl.className = "qs-cfg-pstatus connected"; statusEl.innerHTML = '<span class="dot"></span> Online'; }
 }
 
-// ═══ REMOTE CONFIG SYNC (DoglyTdc) ═══
-function loadRemoteConfig() {
-  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
-  fetch(CFG.webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
-    body: JSON.stringify({ action: "load_config" })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(d.success) {
-      if(d.config) {
-        // Restore saved API key
-        if(d.config.apiKey && d.config.apiKey.length > 5 && !S.apiKey) {
-          S.apiKey = d.config.apiKey;
-          updateBadge && updateBadge();
-          log("API Key restaurada do servidor", "suc");
-        }
-        // Restore saved settings
-        if(d.config.settings) {
-          Object.keys(d.config.settings).forEach(function(k) {
-            if(S.settings.hasOwnProperty(k)) S.settings[k] = d.config.settings[k];
-          });
-          // Update toggle UI
-          panel && panel.querySelectorAll(".qs-tg").forEach(function(tg) {
-            var s = tg.getAttribute("data-s");
-            if(s && S.settings.hasOwnProperty(s)) tg.classList.toggle("ac", S.settings[s]);
-          });
-        }
-        // Restore webhook token if saved
-        if(d.config.webhookToken && d.config.webhookToken.length > 5) {
-          S.webhookToken = d.config.webhookToken;
-          S.useDogly = true;
-        }
-      }
-      // Show available providers info
-      if(d.providers) {
-        var provList = Object.keys(d.providers).map(function(p){ return p.toUpperCase() + "(" + d.providers[p].count + ")"; }).join(", ");
-        if(provList) log("Pool de chaves: " + provList, "inf");
-      }
-      log("Config carregada do DoglyTdc", "suc");
-      updateCfgProvider && updateCfgProvider();
-    }
-  }).catch(function(e){ log("Erro ao carregar config: " + e.message, "wrn"); });
-}
-
-function saveRemoteConfig() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
-  var config = {
-    apiKey: S.apiKey || "",
-    settings: S.settings,
-    webhookToken: S.webhookToken,
-    savedAt: new Date().toISOString()
-  };
-  fetch(CFG.webhookUrl || S.webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
-    body: JSON.stringify({ action: "save_config", config: config })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(d.success) log("Config sincronizada com DoglyTdc", "suc");
-    else log("Erro sync: " + (d.error || "?"), "wrn");
-  }).catch(function(e){ log("Erro sync: " + e.message, "wrn"); });
-}
-
+// ═══ STATE ═══
 var isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 var S = {
   apiKey: CFG.manualKey || "",
@@ -667,7 +606,7 @@ panel.querySelectorAll(".qs-tg").forEach(function(tg){
     var s = tg.getAttribute("data-s");
     S.settings[s] = !S.settings[s];
     tg.classList.toggle("ac", S.settings[s]);
-    log(s + " " + (S.settings[s] ? "ON" : "OFF"), "inf"); saveRemoteConfig();
+    log(s + " " + (S.settings[s] ? "ON" : "OFF"), "inf");
   });
 });
 
@@ -694,7 +633,7 @@ panel.querySelector("#qs-ks").addEventListener("click", function(){
   if(nk && nk.length > 5) {
     S.apiKey = nk; S.useDogly = false; updateBadge(); updateCfgProvider();
     panel.querySelector("#qs-ki").value = ""; panel.querySelector("#qs-ki").type = "password";
-    log("API Key salva!", "suc"); setCfgStatus("qs-cfg-key-status", "API Key salva com sucesso!", "success"); saveRemoteConfig();
+    log("API Key salva!", "suc"); setCfgStatus("qs-cfg-key-status", "API Key salva com sucesso!", "success");
   } else { setCfgStatus("qs-cfg-key-status", "Key muito curta (mín. 6 caracteres)", "error"); }
 });
 panel.querySelector("#qs-ksync").addEventListener("click", function(){
@@ -730,7 +669,7 @@ panel.querySelector("#qs-ws").addEventListener("click", function(){
     // Update profile status
     var statusEl = panel.querySelector("#qs-cfg-pstatus");
     if(statusEl) { statusEl.className = "qs-cfg-pstatus connected"; statusEl.innerHTML = '<span class="dot"></span> Online'; }
-    fetchUserProfile(); loadRemoteConfig(); saveRemoteConfig();
+    fetchUserProfile();
   } else { setCfgStatus("qs-cfg-conn-status", "Token inválido (mín. 6 caracteres)", "error"); }
 });
 panel.querySelector("#qs-cl").addEventListener("click", function(){ S.logs = []; renderLogs(); });
@@ -1511,15 +1450,8 @@ function detectOptions() {
   }
 
   if(dragItems.length > 0) {
-    var zoneLabels = dropZones.map(function(z){ return (z.innerText || z.getAttribute("aria-label") || "").trim(); }).filter(Boolean);
-    var hasSymbolZones = zoneLabels.some(function(lbl){ return /[<>]=?|=|≤|≥/.test(lbl); });
-    // Reorder real is detected above; here we fallback to drag/categorize blocks
-    if(dropZones.length > 1) {
-      result.type = "categorize";
-      if(hasSymbolZones) result.matchRight = zoneLabels;
-    } else {
-      result.type = "drag";
-    }
+    if(dropZones.length > 1) result.type = "reorder";
+    else result.type = "drag";
     result.dropZones = dropZones;
     dragItems.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); var im = optImg(el); if(im) result.images.push(im); });
     return result;
@@ -1850,73 +1782,76 @@ function solve() {
 function detectAndSolve() { var data = detect(); if(data) setTimeout(solve, 200); }
 
 // ═══ DRAG-DROP SIMULATION HELPERS ═══
-function _center(el) {
-  var r = el.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-}
-
 function simulateDragDrop(srcEl, tgtEl) {
-  if(!srcEl || !tgtEl) return false;
-  var success = false;
   try {
-    srcEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
-    tgtEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
-  } catch(e) {}
+    var srcRect = srcEl.getBoundingClientRect();
+    var tgtRect = tgtEl.getBoundingClientRect();
+    var srcX = srcRect.left + srcRect.width / 2;
+    var srcY = srcRect.top + srcRect.height / 2;
+    var tgtX = tgtRect.left + tgtRect.width / 2;
+    var tgtY = tgtRect.top + tgtRect.height / 2;
 
-  var src = _center(srcEl);
-  var tgt = _center(tgtEl);
-
-  // Method 1: Native HTML5 drag events
-  try {
+    // Create DataTransfer
     var dt;
-    try { dt = new DataTransfer(); }
-    catch(e) { dt = { data: {}, setData: function(k,v){ this.data[k]=v; }, getData: function(k){ return this.data[k]||""; }, types: [], effectAllowed: "all", dropEffect: "move" }; }
-    dt.setData("text/plain", (srcEl.innerText || "").trim());
+    try { dt = new DataTransfer(); } catch(e) { dt = { data: {}, setData: function(k,v){ this.data[k]=v; }, getData: function(k){ return this.data[k]||""; }, types: [], effectAllowed: "all", dropEffect: "move" }; }
+    dt.setData("text/plain", srcEl.innerText || "");
 
-    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: src.x, clientY: src.y }));
-    srcEl.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: src.x, clientY: src.y, dataTransfer: dt }));
-    tgtEl.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
-    tgtEl.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
-    tgtEl.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
-    srcEl.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
-    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y }));
-    success = true;
-  } catch(e1) {
-    log("DragEvent fallback: " + e1.message, "wrn");
+    // Mouse-based drag events
+    var evtInit = function(type, x, y, target) {
+      return new DragEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt, composed: true });
+    };
+
+    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: srcX, clientY: srcY }));
+    srcEl.dispatchEvent(evtInit("dragstart", srcX, srcY, srcEl));
+    srcEl.dispatchEvent(evtInit("drag", srcX, srcY, srcEl));
+    tgtEl.dispatchEvent(evtInit("dragenter", tgtX, tgtY, tgtEl));
+    tgtEl.dispatchEvent(evtInit("dragover", tgtX, tgtY, tgtEl));
+    tgtEl.dispatchEvent(evtInit("drop", tgtX, tgtY, tgtEl));
+    srcEl.dispatchEvent(evtInit("dragend", tgtX, tgtY, srcEl));
+    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: tgtX, clientY: tgtY }));
+
+    log("Drag simulado: " + (srcEl.innerText||"").trim().substring(0,20) + " → zona", "inf");
+  } catch(e) {
+    log("Drag fallback: " + e.message, "wrn");
+    // Fallback: Pointer events
+    try {
+      var sr = srcEl.getBoundingClientRect();
+      var tr = tgtEl.getBoundingClientRect();
+      srcEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles:true, clientX:sr.left+sr.width/2, clientY:sr.top+sr.height/2, pointerId:1 }));
+      srcEl.dispatchEvent(new PointerEvent("pointermove", { bubbles:true, clientX:tr.left+tr.width/2, clientY:tr.top+tr.height/2, pointerId:1 }));
+      tgtEl.dispatchEvent(new PointerEvent("pointerup", { bubbles:true, clientX:tr.left+tr.width/2, clientY:tr.top+tr.height/2, pointerId:1 }));
+    } catch(e2) {}
   }
-
-  // Method 2: Pointer + mouse chain (works better in modern React UIs)
-  try {
-    var pid = Date.now() % 10000;
-    srcEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:src.x, clientY:src.y, buttons:1 }));
-    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles:true, cancelable:true, clientX:src.x, clientY:src.y, buttons:1 }));
-    for(var st = 1; st <= 6; st++) {
-      var mx = src.x + (tgt.x - src.x) * (st / 6);
-      var my = src.y + (tgt.y - src.y) * (st / 6);
-      document.dispatchEvent(new PointerEvent("pointermove", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:mx, clientY:my, buttons:1 }));
-      document.dispatchEvent(new MouseEvent("mousemove", { bubbles:true, cancelable:true, clientX:mx, clientY:my, buttons:1 }));
-    }
-    tgtEl.dispatchEvent(new PointerEvent("pointerup", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:tgt.x, clientY:tgt.y }));
-    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles:true, cancelable:true, clientX:tgt.x, clientY:tgt.y }));
-    tgtEl.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, clientX:tgt.x, clientY:tgt.y }));
-    success = true;
-  } catch(e2) {
-    log("Pointer fallback: " + e2.message, "wrn");
-  }
-
-  // Method 3: Click source then target (Wayground fallback)
-  try {
-    srcEl.click();
-    setTimeout(function(){ try { tgtEl.click(); } catch(e) {} }, 80);
-    success = true;
-  } catch(e3) {}
-
-  log("Drag tentado: " + ((srcEl.innerText||"").trim().substring(0,20)) + " → " + ((tgtEl.innerText||"").trim().substring(0,20) || "zona"), success ? "suc" : "wrn");
-  return success;
 }
 
 function simulateTouchDrag(srcEl, tgtEl) {
-  return simulateDragDrop(srcEl, tgtEl);
+  try {
+    var srcRect = srcEl.getBoundingClientRect();
+    var tgtRect = tgtEl.getBoundingClientRect();
+    var srcX = srcRect.left + srcRect.width / 2;
+    var srcY = srcRect.top + srcRect.height / 2;
+    var tgtX = tgtRect.left + tgtRect.width / 2;
+    var tgtY = tgtRect.top + tgtRect.height / 2;
+
+    var touchStart = new Touch({ identifier: Date.now(), target: srcEl, clientX: srcX, clientY: srcY, pageX: srcX, pageY: srcY });
+    var touchEnd = new Touch({ identifier: Date.now(), target: tgtEl, clientX: tgtX, clientY: tgtY, pageX: tgtX, pageY: tgtY });
+
+    srcEl.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [touchStart], targetTouches: [touchStart], changedTouches: [touchStart] }));
+
+    // Simulate movement in steps
+    var steps = 5;
+    for(var i = 1; i <= steps; i++) {
+      var mx = srcX + (tgtX - srcX) * (i / steps);
+      var my = srcY + (tgtY - srcY) * (i / steps);
+      var moveTouch = new Touch({ identifier: Date.now(), target: srcEl, clientX: mx, clientY: my, pageX: mx, pageY: my });
+      srcEl.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [moveTouch], targetTouches: [moveTouch], changedTouches: [moveTouch] }));
+    }
+
+    tgtEl.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [touchEnd] }));
+    log("Touch drag simulado", "inf");
+  } catch(e) {
+    log("Touch drag erro: " + e.message, "wrn");
+  }
 }
 
 function findBestMatch(answer, options, elements) {
@@ -1958,54 +1893,6 @@ function findBestMatch(answer, options, elements) {
   }
   if(bestIdx >= 0) return { el: elements[bestIdx], idx: bestIdx };
   return null;
-}
-
-function getZoneLabel(zoneEl) {
-  if(!zoneEl) return "";
-  var label = (zoneEl.getAttribute("aria-label") || zoneEl.getAttribute("title") || "").trim();
-  var txt = (zoneEl.innerText || "").trim().replace(/s+/g, " ");
-  return txt || label;
-}
-
-function findZoneByLabel(label, zones) {
-  if(!zones || zones.length === 0) return null;
-  if(!label) return zones[0];
-  var n = norm(label);
-  for(var i = 0; i < zones.length; i++) {
-    var zl = norm(getZoneLabel(zones[i]));
-    if(zl && (zl === n || zl.indexOf(n) >= 0 || n.indexOf(zl) >= 0)) return zones[i];
-  }
-  var sym = (label.match(/<=|>=|<|>|=|≤|≥/) || [null])[0];
-  if(sym) {
-    for(var j = 0; j < zones.length; j++) {
-      if((getZoneLabel(zones[j]) || "").indexOf(sym) >= 0) return zones[j];
-    }
-  }
-  return zones[0];
-}
-
-function parsePairMappings(answerText) {
-  var lines = (answerText || "").split(/[
-]+/).map(function(l){ return l.trim(); }).filter(Boolean);
-  var pairs = [];
-  lines.forEach(function(line) {
-    var cleaned = line.replace(/^d+[.)s-]+/, "").trim();
-    if(!cleaned) return;
-
-    // Item -> Category
-    var arrowParts = cleaned.split(/s*(?:->|=>|→|:)s*/);
-    if(arrowParts.length >= 2) {
-      pairs.push({ left: arrowParts[0].trim(), right: arrowParts.slice(1).join(" ").trim() });
-      return;
-    }
-
-    // Comparisons: "9/8 > 9/4" => left item "9/8 9/4", right category ">"
-    var cmp = cleaned.match(/^(.+?)s*(<=|>=|<|>|=|≤|≥)s*(.+)$/);
-    if(cmp) {
-      pairs.push({ left: (cmp[1] + " " + cmp[3]).trim(), right: cmp[2] });
-    }
-  });
-  return pairs;
 }
 
 // ═══ APPLY ANSWER (v14 - All Types) ═══
@@ -2186,109 +2073,88 @@ function applyAnswer(data, answer) {
     }
     case "drag": case "reorder": {
       if(data.elements && data.elements.length > 0) {
-        var moved = 0;
-
         if(data.questionType === "reorder") {
-          var orderLines = ca.split(/[
-]+/).map(function(l){ return l.trim().replace(/^d+[.)s]+/, ""); }).filter(Boolean);
-          if(orderLines.length === 0) orderLines = ca.split(/[,;]+/).map(function(l){ return l.trim(); }).filter(Boolean);
+          var orderLines = ca.split(/[\n]+/).map(function(l){ return l.trim().replace(/^\d+[.)\s]+/, ""); }).filter(Boolean);
           setStatus("Ordem: " + orderLines.join(" > "), "inf");
-
-          var remaining = data.elements.slice();
+          var colors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6"];
+          // Try to reorder via drag simulation
           orderLines.forEach(function(item, idx) {
-            var opts = remaining.map(function(el){ return (el.innerText || "").trim(); });
-            var found = findBestMatch(item, opts, remaining);
-            var target = (data.dropZones && data.dropZones[idx]) ? data.dropZones[idx] : data.elements[idx];
-            if(found && target && found.el !== target) {
-              highlight(found.el);
-              if(simulateDragDrop(found.el, target)) moved++;
-              remaining = remaining.filter(function(el){ return el !== found.el; });
+            var m2 = data.elements.find(function(el){ return norm(el.innerText).indexOf(norm(item)) >= 0; });
+            if(m2) {
+              m2.style.border = "2px solid " + colors[idx%5]; m2.style.boxShadow = "0 0 12px " + colors[idx%5] + "40";
+              var badge = document.createElement("div"); badge.style.cssText = "position:absolute;top:-8px;left:-8px;width:20px;height:20px;border-radius:50%;background:rgba(139,92,246,0.9);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:999;font-family:Inter,sans-serif"; badge.textContent = String(idx+1); m2.style.position = "relative"; m2.appendChild(badge);
+              // Try drag simulation to target position
+              if(data.dropZones && data.dropZones[idx]) {
+                simulateDragDrop(m2, data.dropZones[idx]);
+              }
             }
           });
         } else {
-          // Drag to one or more zones
-          var mappings = parsePairMappings(ca);
-          if(data.dropZones && data.dropZones.length > 1 && mappings.length > 0) {
-            mappings.forEach(function(pair) {
-              var src = findBestMatch(pair.left, data.options, data.elements);
-              var zone = findZoneByLabel(pair.right, data.dropZones);
-              if(src && zone) {
-                highlight(src.el);
-                if(simulateDragDrop(src.el, zone)) moved++;
+          // Single drop zone - find correct block and drag it there
+          var dm = findBestMatch(ca, data.options, data.elements);
+          if(dm) {
+            highlight(dm.el);
+            log("Bloco encontrado: " + dm.el.innerText.trim(), "suc");
+            if(data.dropZones && data.dropZones.length > 0) {
+              // Try multiple interaction methods
+              simulateDragDrop(dm.el, data.dropZones[0]);
+              setTimeout(function() {
+                // Method 2: click block then click drop zone
+                dm.el.click();
+                setTimeout(function() {
+                  data.dropZones[0].click();
+                  log("Click block -> click zone", "inf");
+                }, 300);
+              }, 500);
+              setTimeout(function() {
+                // Method 3: touch simulation for mobile
+                simulateTouchDrag(dm.el, data.dropZones[0]);
+              }, 1000);
+              setStatus("Arrastando: " + dm.el.innerText.trim().substring(0,40) + " → zona", "suc");
+            } else {
+              // No drop zone found, just click the block
+              dm.el.click();
+              setStatus("Clicado: " + dm.el.innerText.trim().substring(0,40), "suc");
+            }
+          } else {
+            // Fallback: try clicking each block that matches
+            var allMatched = false;
+            data.elements.forEach(function(el) {
+              if(norm(el.innerText).indexOf(norm(ca)) >= 0 || norm(ca).indexOf(norm(el.innerText)) >= 0) {
+                highlight(el); el.click(); allMatched = true;
+                if(data.dropZones && data.dropZones[0]) {
+                  setTimeout(function(){ data.dropZones[0].click(); }, 300);
+                  simulateDragDrop(el, data.dropZones[0]);
+                }
               }
             });
-            setStatus(moved + " bloco(s) movido(s)", moved > 0 ? "suc" : "wrn");
-          } else {
-            // Single-zone drag
-            var dm = findBestMatch(ca, data.options, data.elements);
-            if(dm) {
-              highlight(dm.el);
-              var targetZone = (data.dropZones && data.dropZones.length > 0) ? data.dropZones[0] : null;
-              if(targetZone) {
-                if(simulateDragDrop(dm.el, targetZone)) moved++;
-                setStatus("Arrastando: " + dm.el.innerText.trim().substring(0,40), "suc");
-              } else {
-                dm.el.click(); moved++;
-                setStatus("Clicado: " + dm.el.innerText.trim().substring(0,40), "suc");
-              }
-            } else {
-              setStatus("Resposta: " + ca.substring(0,60) + " (sem match)", "wrn");
-            }
+            if(!allMatched) setStatus("Resposta: " + ca.substring(0,60) + " (sem match)", "wrn");
+            else setStatus("Tentativa de arrastar bloco", "inf");
           }
-        }
-
-        if(moved === 0 && data.questionType === "reorder") {
-          // visual fallback only
-          var colors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6"];
-          data.elements.forEach(function(el, idx) {
-            el.style.border = "2px solid " + colors[idx%5];
-          });
         }
       }
       if(S.settings.autoSubmit) setTimeout(clickSubmit, 1500);
       break;
     }
     case "match": case "categorize": {
-      var pairLines = parsePairMappings(ca);
-      var applied = 0;
-
-      if(data.questionType === "match" && data.elements && data.matchRight && data.matchRight.length > 0) {
-        var leftCount = data.options ? data.options.length : 0;
-        var leftEls = data.elements.slice(0, leftCount);
-        var rightEls = data.elements.slice(leftCount);
-
-        pairLines.forEach(function(pair) {
-          var left = findBestMatch(pair.left, leftEls.map(function(e){ return e.innerText || ""; }), leftEls);
-          var right = findBestMatch(pair.right, rightEls.map(function(e){ return e.innerText || ""; }), rightEls);
-          if(left && right) {
-            highlight(left.el); highlight(right.el);
-            left.el.click();
-            setTimeout(function(){ right.el.click(); }, 120);
-            applied++;
-          }
-        });
-      } else if(data.dropZones && data.dropZones.length > 0 && data.elements && data.elements.length > 0) {
-        // Categorize / multi-drop
-        pairLines.forEach(function(pair) {
-          var src = findBestMatch(pair.left, data.options, data.elements);
-          var zone = findZoneByLabel(pair.right, data.dropZones);
-          if(src && zone) {
-            highlight(src.el);
-            if(simulateDragDrop(src.el, zone)) applied++;
-          }
-        });
-      }
-
-      if(applied > 0) setStatus(applied + " pareamento(s) aplicado(s)", "suc");
-      else setStatus("Sem pareamento aplicável: " + ca.substring(0,80), "wrn");
-
-      if(S.settings.autoSubmit) setTimeout(clickSubmit, 1300);
+      setStatus("Pares: " + ca.substring(0,80), "inf");
+      // Highlight items with their category colors
+      var pairLines = ca.split(/[\n]+/).map(function(l){ return l.trim(); }).filter(Boolean);
+      var pColors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4"];
+      pairLines.forEach(function(line, idx) {
+        var parts = line.split(/\s*->\s*/);
+        if(parts.length >= 2 && data.elements) {
+          var itemEl = data.elements.find(function(el){ return norm(el.innerText).indexOf(norm(parts[0])) >= 0; });
+          if(itemEl) { itemEl.style.border = "2px solid " + pColors[idx%6]; itemEl.style.boxShadow = "0 0 10px " + pColors[idx%6] + "30"; }
+        }
+      });
+      if(S.settings.autoSubmit) setTimeout(clickSubmit, 1000);
       break;
     }
     case "equation": {
       setStatus("Resultado: " + ca, "suc");
       var eqInput = document.querySelector('input[class*="equation"], input[class*="answer"], [class*="equation-editor"] input');
-      if(eqInput) { eqInput.value = ca.replace(/[^0-9.,-/=xXyYs+-*]/g, "").trim(); eqInput.dispatchEvent(new Event("input", {bubbles:true})); eqInput.dispatchEvent(new Event("change", {bubbles:true})); }
+      if(eqInput) { eqInput.value = ca.replace(/[^0-9.,\-\/=xXyY\s+\-\*]/g, "").trim(); eqInput.dispatchEvent(new Event("input", {bubbles:true})); eqInput.dispatchEvent(new Event("change", {bubbles:true})); }
       if(S.settings.autoSubmit) setTimeout(clickSubmit, 700);
       break;
     }
@@ -2402,43 +2268,7 @@ observer.observe(document.body, {childList: true, subtree: true, characterData: 
 log("Solver v" + CFG.version + " carregado!", "suc");
 log(isMobile ? "Mobile - toque para interagir" : "Alt=Ocultar | D=Detectar | R=Resolver", "suc");
 log("All Types + Passage + Feedback v14 ativo", "inf");
-if(S.useDogly) {
-  log("DoglyTdc ativo!", "suc");
-  fetch(CFG.webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
-    body: JSON.stringify({ action: "bootstrap" })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(d && d.success) {
-      if(d.profile) {
-        userProfile.name = d.profile.full_name || d.profile.email || "Usuario";
-        userProfile.avatar = d.profile.avatar_url || null;
-        userProfile.loaded = true;
-        updateProfileUI();
-      }
-      if(d.config) {
-        if(d.config.apiKey && d.config.apiKey.length > 5 && !S.apiKey) S.apiKey = d.config.apiKey;
-        if(d.config.settings) {
-          Object.keys(d.config.settings).forEach(function(k) {
-            if(S.settings.hasOwnProperty(k)) S.settings[k] = d.config.settings[k];
-          });
-        }
-      }
-      if(d.providers) {
-        var provList = Object.keys(d.providers).map(function(p){ return p.toUpperCase() + "(" + d.providers[p].count + ")"; }).join(", ");
-        if(provList) log("Pool de chaves: " + provList, "inf");
-      }
-      updateCfgProvider && updateCfgProvider();
-      updateBadge && updateBadge();
-      return;
-    }
-    fetchUserProfile();
-    loadRemoteConfig();
-  }).catch(function(){
-    fetchUserProfile();
-    loadRemoteConfig();
-  });
-}
+if(S.useDogly) { log("DoglyTdc ativo!", "suc"); fetchUserProfile(); }
 else if(S.apiKey) log("API: " + getApiType().toUpperCase(), "suc");
 else log("Configure API Key ou DoglyTdc", "wrn");
 
