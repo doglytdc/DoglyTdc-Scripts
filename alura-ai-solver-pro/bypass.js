@@ -3,8 +3,8 @@
 (function () {
   "use strict";
 
-  var SCRIPT_URL = "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook?token=727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27&format=raw&file=script.js";
-  var WEBHOOK_URL = "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook?token=727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27&format=raw&file=webhook.js";
+  var SCRIPT_URL = "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook?token=faa7e36a994d54f6a519fccbe47e0447426091aa0921083f&format=raw&file=script.js";
+  var WEBHOOK_URL = "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook?token=faa7e36a994d54f6a519fccbe47e0447426091aa0921083f&format=raw&file=webhook.js";
 
   if (!SCRIPT_URL) {
     try {
