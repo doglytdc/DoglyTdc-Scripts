@@ -5,7 +5,7 @@
 
 var CFG = {
   webhookUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook",
-  webhookToken: "843f642001452556ca8073faa054ecae13959100f8f6a93a",
+  webhookToken: "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44",
   manualKey: "",
   profileName: "DoglyTdc Khan Solver",
   version: "1.0",
@@ -59,7 +59,7 @@ loadH2C();
 // ═══ USER PROFILE (DoglyTdc) ═══
 var userProfile = { name: null, avatar: null, loaded: false };
 function fetchUserProfile() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "843f642001452556ca8073faa054ecae13959100f8f6a93a") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
@@ -91,7 +91,7 @@ function updateProfileUI() {
 
 // ═══ REMOTE CONFIG SYNC (DoglyTdc) ═══
 function loadRemoteConfig() {
-  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "843f642001452556ca8073faa054ecae13959100f8f6a93a") return;
+  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
@@ -121,7 +121,7 @@ function loadRemoteConfig() {
 }
 
 function saveRemoteConfig() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "843f642001452556ca8073faa054ecae13959100f8f6a93a") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44") return;
   var config = {
     apiKey: S.apiKey || "",
     settings: S.settings,
@@ -143,7 +143,7 @@ var S = {
   apiKey: CFG.manualKey || "",
   webhookUrl: CFG.webhookUrl,
   webhookToken: CFG.webhookToken,
-  useDogly: (CFG.webhookToken && CFG.webhookToken !== "843f642001452556ca8073faa054ecae13959100f8f6a93a" && CFG.webhookToken.length > 5),
+  useDogly: (CFG.webhookToken && CFG.webhookToken !== "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44" && CFG.webhookToken.length > 5),
   solving: false,
   autoMode: false,
   autoInterval: null,
@@ -674,7 +674,7 @@ panel.innerHTML = [
       '<div class="ka-cfg-stitle">'+IC.link+' DoglyTdc Webhook</div>',
       '<div class="ka-cfg-card">',
         '<div style="padding:12px 14px">',
-          '<input type="password" class="ka-cfg-input" id="ka-wt" placeholder="Token do webhook DoglyTdc..." value="'+(S.webhookToken && S.webhookToken !== "843f642001452556ca8073faa054ecae13959100f8f6a93a" ? S.webhookToken : "")+'">',
+          '<input type="password" class="ka-cfg-input" id="ka-wt" placeholder="Token do webhook DoglyTdc..." value="'+(S.webhookToken && S.webhookToken !== "137a39770c10d5bb7349de3f353316576f81d0b1a0e0fb44" ? S.webhookToken : "")+'">',
           '<div class="ka-cfg-btns">',
             '<button class="ka-cfg-btn primary" id="ka-ws">'+IC.check+' Conectar</button>',
           '</div>',
