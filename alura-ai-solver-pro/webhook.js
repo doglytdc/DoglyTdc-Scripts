@@ -2,7 +2,7 @@
 (function(global){
   "use strict";
   var W="https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook";
-  var T="727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27";
+  var T="faa7e36a994d54f6a519fccbe47e0447426091aa0921083f";
   function createClient(opts){
     opts = opts || {};
     var webhookUrl = opts.webhookUrl || W;
