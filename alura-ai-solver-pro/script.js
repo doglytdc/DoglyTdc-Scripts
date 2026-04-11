@@ -5,7 +5,7 @@
 
 var CFG = {
   webhookUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook",
-  webhookToken: "727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27",
+  webhookToken: "faa7e36a994d54f6a519fccbe47e0447426091aa0921083f",
   manualKey: "",
   profileName: "DoglyTdc Solver",
   version: "2.0",
@@ -57,7 +57,7 @@ loadH2C();
 // ═══ USER PROFILE (DoglyTdc) ═══
 var userProfile = { name: null, avatar: null, loaded: false };
 function fetchUserProfile() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "faa7e36a994d54f6a519fccbe47e0447426091aa0921083f") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
@@ -85,7 +85,7 @@ function updateProfileUI() {
 
 // ═══ REMOTE CONFIG SYNC ═══
 function loadRemoteConfig() {
-  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27") return;
+  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "faa7e36a994d54f6a519fccbe47e0447426091aa0921083f") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
@@ -114,7 +114,7 @@ function loadRemoteConfig() {
 }
 
 function saveRemoteConfig() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "faa7e36a994d54f6a519fccbe47e0447426091aa0921083f") return;
   var config = { apiKey: S.apiKey || "", settings: S.settings, webhookToken: S.webhookToken, savedAt: new Date().toISOString() };
   fetch(CFG.webhookUrl || S.webhookUrl, {
     method: "POST",
@@ -130,7 +130,7 @@ var S = {
   apiKey: CFG.manualKey || "",
   webhookUrl: CFG.webhookUrl,
   webhookToken: CFG.webhookToken,
-  useDogly: (CFG.webhookToken && CFG.webhookToken !== "727185dd9d50d068ae4d4ec90c5f74daa70583b14b6aac27" && CFG.webhookToken.length > 5),
+  useDogly: (CFG.webhookToken && CFG.webhookToken !== "faa7e36a994d54f6a519fccbe47e0447426091aa0921083f" && CFG.webhookToken.length > 5),
   solving: false,
   autoMode: false,
   autoInterval: null,
