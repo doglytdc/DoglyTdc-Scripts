@@ -1,14 +1,14 @@
-// Quizizz/Wayground AI Solver Pro v15 - DoglyTdc
-// Alt=Show/Hide | D=Detect | R=Resolve+Auto | All Types | Drag Simulation | Passage
+// Quizizz/Wayground AI Solver Pro v17 - DoglyTdc
+// Alt=Show/Hide | D=Detect | R=Resolve+Auto | All Types | Tables | Drag Simulation | Passage
 (function(){
 "use strict";
 
 var CFG = {
   webhookUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook",
-  webhookToken: "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03",
+  webhookToken: "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14",
   manualKey: "",
   profileName: "DoglyTdc Solver",
-  version: "15.0",
+  version: "17.0",
   supabaseUrl: "https://ucsyxzpdbnuyehizezvb.supabase.co",
   supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjc3l4enBkYm51eWVoaXplenZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzUwODQsImV4cCI6MjA4MDU1MTA4NH0.1_xuCxeV0NlMxQRhsNC_f_RYGbFYJZ9RKwYAB3e7vtM"
 };
@@ -63,7 +63,7 @@ loadH2C();
 // ═══ USER PROFILE (DoglyTdc) ═══
 var userProfile = { name: null, avatar: null, loaded: false };
 function fetchUserProfile() {
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") return;
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14") return;
   fetch(CFG.webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
@@ -93,13 +93,74 @@ function updateProfileUI() {
   if(statusEl) { statusEl.className = "qs-cfg-pstatus connected"; statusEl.innerHTML = '<span class="dot"></span> Online'; }
 }
 
-// ═══ STATE ═══
+// ═══ REMOTE CONFIG SYNC (DoglyTdc) ═══
+function loadRemoteConfig() {
+  if(!CFG.webhookUrl || CFG.webhookUrl === "https://ucsyxzpdbnuyehizezvb.supabase.co/functions/v1/script-webhook" || !CFG.webhookToken || CFG.webhookToken === "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14") return;
+  fetch(CFG.webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
+    body: JSON.stringify({ action: "load_config" })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) {
+      if(d.config) {
+        // Restore saved API key
+        if(d.config.apiKey && d.config.apiKey.length > 5 && !S.apiKey) {
+          S.apiKey = d.config.apiKey;
+          updateBadge && updateBadge();
+          log("API Key restaurada do servidor", "suc");
+        }
+        // Restore saved settings
+        if(d.config.settings) {
+          Object.keys(d.config.settings).forEach(function(k) {
+            if(S.settings.hasOwnProperty(k)) S.settings[k] = d.config.settings[k];
+          });
+          // Update toggle UI
+          panel && panel.querySelectorAll(".qs-tg").forEach(function(tg) {
+            var s = tg.getAttribute("data-s");
+            if(s && S.settings.hasOwnProperty(s)) tg.classList.toggle("ac", S.settings[s]);
+          });
+        }
+        // Restore webhook token if saved
+        if(d.config.webhookToken && d.config.webhookToken.length > 5) {
+          S.webhookToken = d.config.webhookToken;
+          S.useDogly = true;
+        }
+      }
+      // Show available providers info
+      if(d.providers) {
+        var provList = Object.keys(d.providers).map(function(p){ return p.toUpperCase() + "(" + d.providers[p].count + ")"; }).join(", ");
+        if(provList) log("Pool de chaves: " + provList, "inf");
+      }
+      log("Config carregada do DoglyTdc", "suc");
+      updateCfgProvider && updateCfgProvider();
+    }
+  }).catch(function(e){ log("Erro ao carregar config: " + e.message, "wrn"); });
+}
+
+function saveRemoteConfig() {
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14") return;
+  var config = {
+    apiKey: S.apiKey || "",
+    settings: S.settings,
+    webhookToken: S.webhookToken,
+    savedAt: new Date().toISOString()
+  };
+  fetch(CFG.webhookUrl || S.webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-webhook-token": S.webhookToken },
+    body: JSON.stringify({ action: "save_config", config: config })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) log("Config sincronizada com DoglyTdc", "suc");
+    else log("Erro sync: " + (d.error || "?"), "wrn");
+  }).catch(function(e){ log("Erro sync: " + e.message, "wrn"); });
+}
+
 var isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 var S = {
   apiKey: CFG.manualKey || "",
   webhookUrl: CFG.webhookUrl,
   webhookToken: CFG.webhookToken,
-  useDogly: (CFG.webhookToken && CFG.webhookToken !== "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03" && CFG.webhookToken.length > 5),
+  useDogly: (CFG.webhookToken && CFG.webhookToken !== "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14" && CFG.webhookToken.length > 5),
   solving: false,
   autoMode: false,
   autoInterval: null,
@@ -197,6 +258,15 @@ css.textContent = `
 .qs-oi{display:flex;gap:7px;padding:4px 0;font-size:11.5px;color:rgba(255,255,255,0.65);align-items:center}
 .qs-oi img{max-width:45px;border-radius:4px}
 .qs-ol-letter{color:#a78bfa;font-weight:700;font-size:10px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.1)}
+.qs-blocks{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:6px}
+.qs-block-row{display:flex;gap:6px;align-items:stretch}
+.qs-block-drag{flex:1;padding:8px 10px;border-radius:10px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(168,85,247,0.1));border:1px solid rgba(139,92,246,0.2);display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);min-height:40px;text-align:center}
+.qs-block-drag .qs-frac{display:inline-flex;flex-direction:column;align-items:center;gap:0;line-height:1;font-size:13px}
+.qs-block-drag .qs-frac-num{border-bottom:1.5px solid rgba(255,255,255,0.5);padding:0 3px 2px}
+.qs-block-drag .qs-frac-den{padding:2px 3px 0}
+.qs-block-drop{flex:0 0 50px;padding:6px;border-radius:10px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:rgba(255,255,255,0.5);min-height:40px}
+.qs-block-label{font-size:9px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;display:flex;align-items:center;gap:4px}
+.qs-block-sep{display:flex;align-items:center;justify-content:center;color:rgba(139,92,246,0.4);font-size:14px;padding:0 2px}
 .qs-ac{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .qs-bt{padding:10px;border:none;border-radius:11px;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;font-family:inherit;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
 .qs-bt:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,transparent 60%);pointer-events:none}
@@ -421,7 +491,7 @@ panel.innerHTML = [
     '<div class="qs-cfg-card highlight">',
       '<div class="qs-cfg-input-group">',
         '<div class="qs-cfg-input-label">', IC.key, ' Webhook Token</div>',
-        '<input type="text" class="qs-cfg-input" id="qs-wt" placeholder="Cole seu token de webhook..." value="', (S.webhookToken !== "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03" ? S.webhookToken : ""), '">',
+        '<input type="text" class="qs-cfg-input" id="qs-wt" placeholder="Cole seu token de webhook..." value="', (S.webhookToken !== "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14" ? S.webhookToken : ""), '">',
         '<div class="qs-cfg-btns">',
           '<button class="qs-cfg-btn primary" id="qs-ws">', IC.link, ' Conectar</button>',
         '</div>',
@@ -472,7 +542,7 @@ panel.innerHTML = [
   '<div class="qs-cfg-divider"></div>',
   '<div class="qs-cfg-version">',
     '<span>Quizizz AI Solver Pro</span> v', CFG.version, ' — DoglyTdc Edition<br>',
-    'All Types • Passage • Vision • Feedback v14',
+    'All Types • Blocks • V/F • Vision • Feedback v17',
   '</div>',
 
 '</div>'
@@ -606,7 +676,7 @@ panel.querySelectorAll(".qs-tg").forEach(function(tg){
     var s = tg.getAttribute("data-s");
     S.settings[s] = !S.settings[s];
     tg.classList.toggle("ac", S.settings[s]);
-    log(s + " " + (S.settings[s] ? "ON" : "OFF"), "inf");
+    log(s + " " + (S.settings[s] ? "ON" : "OFF"), "inf"); saveRemoteConfig();
   });
 });
 
@@ -633,13 +703,13 @@ panel.querySelector("#qs-ks").addEventListener("click", function(){
   if(nk && nk.length > 5) {
     S.apiKey = nk; S.useDogly = false; updateBadge(); updateCfgProvider();
     panel.querySelector("#qs-ki").value = ""; panel.querySelector("#qs-ki").type = "password";
-    log("API Key salva!", "suc"); setCfgStatus("qs-cfg-key-status", "API Key salva com sucesso!", "success");
+    log("API Key salva!", "suc"); setCfgStatus("qs-cfg-key-status", "API Key salva com sucesso!", "success"); saveRemoteConfig();
   } else { setCfgStatus("qs-cfg-key-status", "Key muito curta (mín. 6 caracteres)", "error"); }
 });
 panel.querySelector("#qs-ksync").addEventListener("click", function(){
   var nk = panel.querySelector("#qs-ki").value.trim() || S.apiKey;
   if(!nk || nk.length < 5) { setCfgStatus("qs-cfg-key-status", "Insira uma API Key primeiro", "error"); return; }
-  if(!S.useDogly || !S.webhookToken || S.webhookToken === "2fb21fe7c6e41443cecbffb6fd78d3cafde7756de05d0b03") { setCfgStatus("qs-cfg-key-status", "Conecte ao DoglyTdc primeiro", "error"); return; }
+  if(!S.useDogly || !S.webhookToken || S.webhookToken === "85489d2193193d9680dca2113e8f5edc6288fc9c67e44a14") { setCfgStatus("qs-cfg-key-status", "Conecte ao DoglyTdc primeiro", "error"); return; }
   setCfgStatus("qs-cfg-key-status", "Sincronizando com DoglyTdc...", "info");
   var provider = "groq";
   if(nk.indexOf("AIza") === 0) provider = "google";
@@ -669,7 +739,7 @@ panel.querySelector("#qs-ws").addEventListener("click", function(){
     // Update profile status
     var statusEl = panel.querySelector("#qs-cfg-pstatus");
     if(statusEl) { statusEl.className = "qs-cfg-pstatus connected"; statusEl.innerHTML = '<span class="dot"></span> Online'; }
-    fetchUserProfile();
+    fetchUserProfile(); loadRemoteConfig(); saveRemoteConfig();
   } else { setCfgStatus("qs-cfg-conn-status", "Token inválido (mín. 6 caracteres)", "error"); }
 });
 panel.querySelector("#qs-cl").addEventListener("click", function(){ S.logs = []; renderLogs(); });
@@ -1278,281 +1348,725 @@ function extractFullPageContent() {
 }
 
 // ══════════════════════════════════════════════════════════
-// ═══ OPTION DETECTION v14 (ALL QUESTION TYPES) ═══
+// ═══ OPTION DETECTION v17 (ALL QUESTION TYPES - BLOCK-FIRST) ═══
 // ══════════════════════════════════════════════════════════
 function detectOptions() {
   var result = { type: "unknown", options: [], images: [], elements: [], dropZones: [], inputElement: null, matchRight: null, fillBlanks: [] };
+
+  // ── Helpers ──
   function optText(el) {
     var ann = el.querySelector('annotation[encoding="application/x-tex"]');
     if(ann) return ann.textContent.trim();
-    var ot = el.querySelector("#optionText") || el.querySelector(".option-text") || el.querySelector('[class*="OptionText"]') || el.querySelector('[class*="optionText"]');
+    var ot = el.querySelector('#optionText, .option-text, [class*="OptionText"], [class*="optionText"], [class*="option-text"]');
     if(ot) return ot.innerText.trim();
     var katex = el.querySelector(".katex");
     if(katex) { var a2 = katex.querySelector('annotation[encoding="application/x-tex"]'); return a2 ? a2.textContent.trim() : katex.innerText.trim(); }
     var clone = el.cloneNode(true);
-    clone.querySelectorAll("button, [class*='badge'], [class*='indicator']").forEach(function(b){ b.remove(); });
-    return clone.innerText.trim().replace(/^[A-D][.)\s]+/, "");
+    clone.querySelectorAll("button, [class*='badge'], [class*='indicator'], [class*='index'], svg, [class*='number']").forEach(function(b){ b.remove(); });
+    return clone.innerText.trim().replace(/^[A-Da-d][.)\s]+/, "").replace(/^\d+[.)\s]+/, "");
   }
   function optImg(el) { var img = el.querySelector("img"); return img && img.src && img.naturalWidth > 20 ? img.src : null; }
+  function vis(el) { return el && el.offsetParent !== null && !el.closest("#qs-panel"); }
+  function qAll(sels) {
+    var arr = [];
+    if(typeof sels === "string") sels = sels.split(",").map(function(s){ return s.trim(); });
+    for(var i = 0; i < sels.length; i++) {
+      try { var found = document.querySelectorAll(sels[i]); for(var j = 0; j < found.length; j++) { if(vis(found[j]) && arr.indexOf(found[j]) === -1) arr.push(found[j]); } } catch(e) {}
+    }
+    return arr;
+  }
+  function qFirst(sels) { var all = qAll(sels); return all.length > 0 ? all[0] : null; }
 
-  // ═══ 1. EQUATION ═══
-  var eq = document.querySelector('div[data-cy="equation-editor"]') || document.querySelector('[class*="equation-editor"]') || document.querySelector('[class*="MathResponse"]');
-  if(eq) { result.type = "equation"; result.inputElement = eq; return result; }
-
-  // ═══ 2. TYPED / OPEN-ENDED / SHORT ANSWER ═══
-  var openSelectors = [
-    'textarea[data-cy="open-ended-textarea"]','input[data-cy="answer-input"]',"input.answer-input",
-    'input[type="text"][class*="answer"]','textarea[class*="answer"]',
-    '[class*="FillInTheBlank"] input','[class*="fill-blank"] input','[class*="FillBlank"] input',
-    '[class*="TypedAnswer"] input','[class*="typed-answer"] input','[class*="typedAnswer"] input',
-    '[data-testid="text-input"]','.typed-answer-input input','.typed-answer-input textarea',
-    '[class*="fill"] input[type="text"]','[class*="blank"] input[type="text"]',
-    '[class*="openEnded"] textarea','[class*="OpenEnded"] textarea',
-    '[class*="short-answer"] input','[class*="ShortAnswer"] input',
-    '[class*="free-response"] textarea','[class*="FreeResponse"] textarea',
-    '[class*="text-response"] input','[class*="TextResponse"] input',
-    // Wayground specific
-    '[class*="answer-field"] input','[class*="AnswerField"] input',
-    '[class*="response-input"] input','[class*="ResponseInput"] input',
-    'input[placeholder*="answer"]','input[placeholder*="resposta"]',
-    'input[placeholder*="digite"]','input[placeholder*="type"]',
-    'textarea[placeholder*="answer"]','textarea[placeholder*="resposta"]'
-  ];
-  for(var oi = 0; oi < openSelectors.length; oi++) {
-    var oe = document.querySelector(openSelectors[oi]);
-    if(oe && oe.offsetParent !== null) { result.type = "open"; result.inputElement = oe; return result; }
+  // ── Better text extraction for fraction blocks ──
+  function extractBlockText(el) {
+    var fractions = el.querySelectorAll('.katex, math, [class*="frac"], [class*="Frac"], [class*="fraction"], [class*="Fraction"]');
+    if(fractions.length > 0) {
+      var fracTexts = [];
+      fractions.forEach(function(frac) {
+        var ann = frac.querySelector('annotation[encoding="application/x-tex"]');
+        if(ann) { fracTexts.push(ann.textContent.trim()); return; }
+        var num = frac.querySelector('[class*="numer"], [class*="Numer"]');
+        var den = frac.querySelector('[class*="denom"], [class*="Denom"]');
+        if(num && den && num !== den) { fracTexts.push(num.innerText.trim() + "/" + den.innerText.trim()); }
+        else { fracTexts.push(frac.innerText.trim().replace(/\s+/g, "/")); }
+      });
+      return fracTexts.join(" ");
+    }
+    // Stacked numbers (Wayground fractions: numerator over denominator)
+    var leafNodes = [];
+    el.querySelectorAll('span, div, p').forEach(function(s) {
+      if(s.children.length === 0 || (s.children.length === 1 && s.children[0].tagName === "BR")) {
+        var t = s.innerText.trim();
+        if(t && /^[0-9]+$/.test(t)) {
+          var r = s.getBoundingClientRect();
+          leafNodes.push({ text: t, x: r.left + r.width/2, y: r.top + r.height/2 });
+        }
+      }
+    });
+    if(leafNodes.length >= 2) {
+      leafNodes.sort(function(a,b){ return a.x - b.x || a.y - b.y; });
+      var groups = []; var curGroup = [leafNodes[0]];
+      for(var ni = 1; ni < leafNodes.length; ni++) {
+        if(Math.abs(leafNodes[ni].x - curGroup[0].x) < 30) curGroup.push(leafNodes[ni]);
+        else { groups.push(curGroup); curGroup = [leafNodes[ni]]; }
+      }
+      groups.push(curGroup);
+      var fracs = [];
+      groups.forEach(function(g) {
+        g.sort(function(a,b){ return a.y - b.y; });
+        if(g.length === 2) fracs.push(g[0].text + "/" + g[1].text);
+        else if(g.length === 1) fracs.push(g[0].text);
+        else { for(var gi = 0; gi < g.length; gi += 2) { if(gi+1 < g.length) fracs.push(g[gi].text + "/" + g[gi+1].text); else fracs.push(g[gi].text); } }
+      });
+      if(fracs.length > 0) return fracs.join(" ");
+    }
+    return (el.innerText || "").trim().replace(/\s+/g, " ");
   }
 
-  // ═══ 3. FILL-IN-THE-BLANK WITH SELECT (dropdown in sentence) ═══
-  var fillBlankSelects = document.querySelectorAll('[class*="fill"] select, [class*="Fill"] select, [class*="blank"] select, [class*="Blank"] select, [class*="cloze"] select, [class*="Cloze"] select, [class*="gap"] select, [class*="Gap"] select');
-  if(fillBlankSelects.length > 0) {
+  // ══════════════════════════════════════════════════════
+  // ═══ 1. EQUATION EDITOR ═══
+  // ══════════════════════════════════════════════════════
+  var eq = qFirst([
+    'div[data-cy="equation-editor"]', '[class*="equation-editor"]', '[class*="EquationEditor"]',
+    '[class*="MathResponse"]', '[class*="math-response"]', '[class*="math-input"]',
+    '[class*="MathInput"]', '[class*="math-keyboard"]', '[class*="MathKeyboard"]'
+  ]);
+  if(eq) { result.type = "equation"; result.inputElement = eq; return result; }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 2. TYPED / OPEN-ENDED / SHORT ANSWER ═══
+  // ══════════════════════════════════════════════════════
+  var openSels = [
+    'textarea[data-cy="open-ended-textarea"]', 'input[data-cy="answer-input"]',
+    'input.answer-input', '[data-testid="text-input"]', '[data-testid="answer-input"]',
+    'input[type="text"][class*="answer"]', 'textarea[class*="answer"]',
+    '[class*="TypedAnswer"] input', '[class*="typed-answer"] input', '[class*="typedAnswer"] input',
+    '.typed-answer-input input', '.typed-answer-input textarea',
+    '[class*="FillInTheBlank"] input', '[class*="fill-blank"] input', '[class*="FillBlank"] input',
+    '[class*="openEnded"] textarea', '[class*="OpenEnded"] textarea', '[class*="open-ended"] textarea',
+    '[class*="short-answer"] input', '[class*="ShortAnswer"] input',
+    '[class*="free-response"] textarea', '[class*="FreeResponse"] textarea',
+    '[class*="text-response"] input', '[class*="TextResponse"] input',
+    '[class*="answer-field"] input', '[class*="AnswerField"] input',
+    '[class*="response-input"] input', '[class*="ResponseInput"] input',
+    'input[placeholder*="answer" i]', 'input[placeholder*="resposta" i]',
+    'input[placeholder*="digite" i]', 'input[placeholder*="type" i]',
+    'textarea[placeholder*="answer" i]', 'textarea[placeholder*="resposta" i]',
+    '[contenteditable="true"][class*="answer"]', '[contenteditable="true"][class*="response"]'
+  ];
+  var oe = qFirst(openSels);
+  if(oe) { result.type = "open"; result.inputElement = oe; return result; }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 3. FILL-IN-THE-BLANK WITH SELECT ═══
+  // ══════════════════════════════════════════════════════
+  var fillSelects = qAll([
+    '[class*="fill"] select', '[class*="Fill"] select', '[class*="blank"] select', '[class*="Blank"] select',
+    '[class*="cloze"] select', '[class*="Cloze"] select', '[class*="gap"] select', '[class*="Gap"] select',
+    'select[class*="answer"]', 'select[class*="response"]',
+    '[class*="sentence"] select', '[class*="Sentence"] select'
+  ]);
+  if(fillSelects.length > 0) {
     result.type = "fill_select";
-    fillBlankSelects.forEach(function(sel) {
-      result.fillBlanks.push(sel);
-      result.elements.push(sel);
-      var opts = sel.querySelectorAll("option");
-      opts.forEach(function(o) { if(o.value && o.innerText.trim()) result.options.push(o.innerText.trim()); });
+    fillSelects.forEach(function(sel) {
+      result.fillBlanks.push(sel); result.elements.push(sel);
+      sel.querySelectorAll("option").forEach(function(o) { if(o.value && o.innerText.trim()) result.options.push(o.innerText.trim()); });
     });
     return result;
   }
-  // Fill-in-blank with clickable blanks (Quizizz style - blank becomes a button that shows options)
-  var clickableBlanks = document.querySelectorAll('[class*="blank-option"], [class*="BlankOption"], [class*="cloze-blank"], [class*="ClozeBlank"], [class*="fill-blank"], [class*="FillBlank"], button[class*="blank"], [class*="gap-option"], [class*="GapOption"]');
-  if(clickableBlanks.length > 0) {
+
+  var clickBlanks = qAll([
+    '[class*="blank-option"]', '[class*="BlankOption"]', '[class*="cloze-blank"]', '[class*="ClozeBlank"]',
+    '[class*="fill-blank"]', '[class*="FillBlank"]', 'button[class*="blank"]',
+    '[class*="gap-option"]', '[class*="GapOption"]', '[class*="blank-space"][role="button"]',
+    '[class*="blank-button"]', '[class*="BlankButton"]',
+    '[class*="response-blank"]', '[class*="ResponseBlank"]'
+  ]);
+  if(clickBlanks.length > 0) {
     result.type = "fill_select";
-    clickableBlanks.forEach(function(el) {
-      result.fillBlanks.push(el);
-      result.elements.push(el);
-    });
-    // Look for a dropdown/popup that appeared after clicking a blank
-    var dropdownOpts = document.querySelectorAll('[class*="dropdown"] [class*="option"], [class*="Dropdown"] [class*="option"], [class*="popup"] [class*="option"], [class*="Popup"] [class*="option"], [class*="menu"] [class*="item"], [class*="Menu"] [class*="item"]');
-    dropdownOpts.forEach(function(o) {
-      if(o.offsetParent !== null && !o.closest("#qs-panel")) result.options.push(o.innerText.trim());
-    });
+    clickBlanks.forEach(function(el) { result.fillBlanks.push(el); result.elements.push(el); });
+    var popupOpts = qAll([
+      '[class*="dropdown"] [class*="option"]', '[class*="Dropdown"] [class*="option"]',
+      '[class*="popup"] [class*="option"]', '[class*="Popup"] [class*="option"]',
+      '[class*="menu"] [class*="item"]', '[class*="Menu"] [class*="item"]',
+      '[role="listbox"] [role="option"]', '[class*="popover"] [class*="item"]',
+      '[class*="Popover"] [class*="item"]', '[class*="select-menu"] [class*="option"]'
+    ]);
+    popupOpts.forEach(function(o) { result.options.push(o.innerText.trim()); });
     if(result.options.length > 0) return result;
   }
 
+  // ══════════════════════════════════════════════════════
   // ═══ 4. LABELING ═══
-  var labelBlanks = document.querySelectorAll('[class*="label-blank"], [class*="LabelBlank"], [class*="labeling"] input, [class*="Labeling"] input');
-  if(labelBlanks.length > 0) { result.type = "labeling"; result.inputElement = labelBlanks[0]; labelBlanks.forEach(function(el) { result.elements.push(el); }); return result; }
+  // ══════════════════════════════════════════════════════
+  var labelBlanks = qAll([
+    '[class*="label-blank"]', '[class*="LabelBlank"]', '[class*="labeling"] input',
+    '[class*="Labeling"] input', '[class*="label-input"]', '[class*="LabelInput"]',
+    '[class*="diagram"] input', '[class*="Diagram"] input'
+  ]);
+  if(labelBlanks.length > 0) {
+    result.type = "labeling"; result.inputElement = labelBlanks[0];
+    labelBlanks.forEach(function(el) { result.elements.push(el); });
+    return result;
+  }
 
+  // ══════════════════════════════════════════════════════
   // ═══ 5. HOTSPOT ═══
-  var hotspot = document.querySelector('[class*="hotspot"], [class*="Hotspot"], [data-testid*="hotspot"]');
+  // ══════════════════════════════════════════════════════
+  var hotspot = qFirst([
+    '[class*="hotspot"]', '[class*="Hotspot"]', '[data-testid*="hotspot"]',
+    '[class*="image-click"]', '[class*="ImageClick"]', '[class*="click-region"]'
+  ]);
   if(hotspot) { result.type = "hotspot"; result.inputElement = hotspot; return result; }
 
-  // ═══ 6. CATEGORIZE (move blocks into categories) ═══
-  var catZones = document.querySelectorAll('[class*="categorize"] [class*="zone"], [class*="Categorize"] [class*="zone"], [class*="category-zone"], [class*="CategoryZone"], [class*="category-container"], [class*="CategoryContainer"], [class*="bucket"], [class*="Bucket"], [class*="classification"] [class*="zone"], [class*="Classification"] [class*="zone"]');
-  var catItems = document.querySelectorAll('[class*="categorize"] [class*="item"], [class*="Categorize"] [class*="draggable"], [class*="category-item"], [class*="CategoryItem"], [class*="classification"] [class*="item"], [class*="Classification"] [class*="item"], [class*="categorize"] [class*="draggable"], [class*="Categorize"] [class*="drag"]');
+  // ══════════════════════════════════════════════════════
+  // ═══ 6. TABLE-BASED QUESTIONS ═══
+  // ══════════════════════════════════════════════════════
+  var tableEls = qAll([
+    'table[class*="question"]', 'table[class*="answer"]', 'table[class*="grid"]',
+    '[class*="grid-question"]', '[class*="GridQuestion"]', '[class*="matrix"]', '[class*="Matrix"]',
+    '[class*="table-question"]', '[class*="TableQuestion"]',
+    '[role="grid"]', '[class*="data-table"]', '[class*="DataTable"]'
+  ]);
+  if(tableEls.length > 0) {
+    var tbl = tableEls[0];
+    var cells = tbl.querySelectorAll('td, th');
+    var clickableCells = [];
+    cells.forEach(function(cell) {
+      if(vis(cell)) {
+        var btn = cell.querySelector('button, input, [role="button"], [role="checkbox"], [role="radio"]');
+        if(btn) clickableCells.push(btn);
+        else if(cell.getAttribute("role") === "button" || cell.onclick || cell.style.cursor === "pointer") clickableCells.push(cell);
+      }
+    });
+    if(clickableCells.length > 0) {
+      result.type = "table_select";
+      var headers = []; tbl.querySelectorAll('th, thead td').forEach(function(h) { if(h.innerText.trim()) headers.push(h.innerText.trim()); });
+      var rows = tbl.querySelectorAll('tbody tr, tr');
+      rows.forEach(function(row) {
+        var rowCells = row.querySelectorAll('td, th');
+        var rowData = [];
+        rowCells.forEach(function(c) { rowData.push(c.innerText.trim()); });
+        if(rowData.join("").length > 0) result.options.push(rowData.join(" | "));
+      });
+      result.elements = clickableCells;
+      if(headers.length > 0) result.matchRight = headers;
+      return result;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 7. CATEGORIZE (semantic selectors) ═══
+  // ══════════════════════════════════════════════════════
+  var catZones = qAll([
+    '[class*="categorize"] [class*="zone"]', '[class*="Categorize"] [class*="zone"]',
+    '[class*="category-zone"]', '[class*="CategoryZone"]',
+    '[class*="category-container"]', '[class*="CategoryContainer"]',
+    '[class*="bucket"]', '[class*="Bucket"]',
+    '[class*="classification"] [class*="zone"]', '[class*="Classification"] [class*="zone"]',
+    '[class*="category-drop"]', '[class*="CategoryDrop"]',
+    '[class*="sort-zone"]', '[class*="SortZone"]',
+    '[data-testid*="category"]', '[data-testid*="bucket"]'
+  ]);
+  var catItems = qAll([
+    '[class*="categorize"] [class*="item"]', '[class*="Categorize"] [class*="draggable"]',
+    '[class*="category-item"]', '[class*="CategoryItem"]',
+    '[class*="classification"] [class*="item"]', '[class*="Classification"] [class*="item"]',
+    '[class*="categorize"] [class*="draggable"]', '[class*="Categorize"] [class*="drag"]',
+    '[class*="sort-item"]', '[class*="SortItem"]',
+    '[data-testid*="categorize-item"]', '[data-testid*="drag-item"]'
+  ]);
   if(catZones.length > 0 && catItems.length > 0) {
     result.type = "categorize";
     catZones.forEach(function(el){ result.dropZones.push(el); });
     catItems.forEach(function(el){ result.options.push(el.innerText.trim()); result.elements.push(el); });
-    result.matchRight = []; catZones.forEach(function(z){ var title = z.querySelector('[class*="title"], [class*="header"], [class*="name"], h3, h4'); result.matchRight.push(title ? title.innerText.trim() : z.innerText.trim().split("\n")[0]); });
+    result.matchRight = [];
+    catZones.forEach(function(z) {
+      var title = z.querySelector('[class*="title"], [class*="header"], [class*="name"], [class*="label"], h3, h4, h5');
+      result.matchRight.push(title ? title.innerText.trim() : z.innerText.trim().split("\n")[0]);
+    });
     return result;
   }
 
-  // ═══ 7. REORDER / SORTING (move blocks in correct order) ═══
-  var sortableItems = document.querySelectorAll('[class*="sortable"] li, [class*="Sortable"] li, [class*="reorder"] li, [class*="Reorder"] li, [class*="ordering"] li, [class*="Ordering"] li, [class*="sort-item"], [class*="SortItem"], [class*="reorder-item"], [class*="ReorderItem"], [class*="sequencing"] [class*="item"], [class*="Sequencing"] [class*="item"]');
-  if(sortableItems.length > 1) {
+  // ══════════════════════════════════════════════════════
+  // ═══ 8. REORDER / SORTING ═══
+  // ══════════════════════════════════════════════════════
+  var sortItems = qAll([
+    '[class*="sortable"] li', '[class*="Sortable"] li',
+    '[class*="reorder"] li', '[class*="Reorder"] li',
+    '[class*="ordering"] li', '[class*="Ordering"] li',
+    '[class*="sort-item"]', '[class*="SortItem"]',
+    '[class*="reorder-item"]', '[class*="ReorderItem"]',
+    '[class*="sequencing"] [class*="item"]', '[class*="Sequencing"] [class*="item"]',
+    '[class*="order-item"]', '[class*="OrderItem"]',
+    '[data-testid*="reorder"]', '[data-testid*="sort-item"]',
+    '[class*="sortable-list"] > *', '[class*="SortableList"] > *'
+  ]);
+  if(sortItems.length > 1) {
     result.type = "reorder";
-    sortableItems.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); });
+    sortItems.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); });
     return result;
   }
 
-  // ═══ 8. DRAG AND DROP (move blocks to zones) ═══
+  // ══════════════════════════════════════════════════════
+  // ═══ 9. DRAG AND DROP (semantic selectors first) ═══
+  // ══════════════════════════════════════════════════════
   var dzSelectors = [
     "button.droppable-blank", ".drop-zone", '[class*="DropZone"]', '[class*="drop-zone"]',
     '[data-testid*="drop"]', '[class*="blank-space"]', '[class*="droppable"]', '[class*="Droppable"]',
     '[class*="drop-target"]', '[class*="DropTarget"]', '[class*="target-zone"]', '[class*="TargetZone"]',
-    '[class*="answer-blank"]', '[class*="AnswerBlank"]', '[class*="placeholder"]',
-    // Wayground specific - dashed border drop areas
-    '[style*="dashed"]', '[class*="answer-slot"]', '[class*="AnswerSlot"]',
+    '[class*="answer-blank"]', '[class*="AnswerBlank"]',
+    '[class*="answer-slot"]', '[class*="AnswerSlot"]',
     '[class*="drop-area"]', '[class*="DropArea"]', '[class*="response-zone"]', '[class*="ResponseZone"]',
-    '[class*="snap-zone"]', '[class*="SnapZone"]', '[class*="target-blank"]', '[class*="TargetBlank"]'
+    '[class*="snap-zone"]', '[class*="SnapZone"]', '[class*="target-blank"]', '[class*="TargetBlank"]',
+    '[data-testid*="drop-zone"]', '[data-testid*="blank"]'
   ];
   var dgSelectors = [
     ".drag-option", ".draggable-option", '[class*="DragOption"]', '[class*="draggable"]',
     '[data-testid*="drag"]', '[class*="sortable-item"]', '[class*="drag-item"]', '[class*="DragItem"]',
     '[class*="Draggable"]', '[class*="drag-block"]', '[class*="DragBlock"]',
-    // Wayground specific - blocks with grab handles
-    '[class*="movable"]', '[class*="Movable"]', '[class*="grab"]', '[class*="Grab"]',
+    '[class*="movable"]', '[class*="Movable"]',
     '[class*="chip"]', '[class*="Chip"]', '[class*="token"]', '[class*="Token"]',
     '[class*="answer-token"]', '[class*="AnswerToken"]', '[class*="block-option"]', '[class*="BlockOption"]',
-    '[class*="tile"]', '[class*="Tile"]', '[class*="snap-item"]', '[class*="SnapItem"]'
+    '[class*="tile"]', '[class*="Tile"]', '[class*="snap-item"]', '[class*="SnapItem"]',
+    '[data-testid*="drag-item"]', '[draggable="true"]'
   ];
-  var dropZones = [], dragItems = [];
-  var dzSeen = new Set(), dgSeen = new Set();
-  dzSelectors.forEach(function(s){ document.querySelectorAll(s).forEach(function(el){
-    if(el.offsetParent !== null && !el.closest("#qs-panel") && !dzSeen.has(el)) { dzSeen.add(el); dropZones.push(el); }
-  }); });
-  dgSelectors.forEach(function(s){ document.querySelectorAll(s).forEach(function(el){
-    if(el.offsetParent !== null && !el.closest("#qs-panel") && !dgSeen.has(el)) { dgSeen.add(el); dragItems.push(el); }
-  }); });
+  var dropZones = qAll(dzSelectors);
+  var dragItems = qAll(dgSelectors);
 
-  // Wayground fallback: detect blocks by visual heuristics (grid handle icon + short text + positioned at bottom)
-  if(dragItems.length === 0) {
-    var candidateBlocks = document.querySelectorAll('button, [role="button"], [tabindex="0"], [class*="option"]');
-    var blockCandidates = [];
-    candidateBlocks.forEach(function(el) {
-      if(el.closest("#qs-panel") || !el.offsetParent) return;
-      var txt = (el.innerText || "").trim();
-      // Drag blocks are usually short text (numbers, words) and have drag indicators
-      if(txt.length >= 1 && txt.length <= 30) {
-        var rect = el.getBoundingClientRect();
-        var style = getComputedStyle(el);
-        var hasBorder = style.border && style.border !== "none" && style.border.indexOf("0px") === -1;
-        var hasBg = style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" && style.backgroundColor !== "transparent";
-        var hasGrabCursor = style.cursor === "grab" || style.cursor === "move" || style.cursor === "pointer";
-        var hasDragAttr = el.getAttribute("draggable") === "true" || el.getAttribute("data-drag") || el.getAttribute("data-draggable");
-        // Check for drag handle SVG (6 dots pattern)
-        var hasDragHandle = el.querySelector('svg') && el.innerHTML.match(/circle|dot|grip|drag|handle/i);
-        if(hasDragAttr || hasDragHandle || (hasGrabCursor && (hasBorder || hasBg) && rect.width < 200)) {
-          blockCandidates.push(el);
-        }
-      }
-    });
-    if(blockCandidates.length >= 2) dragItems = blockCandidates;
-  }
-
-  // Wayground fallback: detect drop zones by dashed borders or empty placeholders
-  if(dropZones.length === 0 && dragItems.length > 0) {
-    document.querySelectorAll('div, span, section, [class*="answer"], [class*="blank"]').forEach(function(el) {
-      if(el.closest("#qs-panel") || !el.offsetParent) return;
-      if(dzSeen.has(el)) return;
-      var style = getComputedStyle(el);
-      var isDashed = (style.borderStyle && style.borderStyle.indexOf("dashed") >= 0) || (style.outlineStyle && style.outlineStyle.indexOf("dashed") >= 0);
-      var isDroppable = el.getAttribute("droppable") === "true" || el.getAttribute("data-drop") || el.getAttribute("data-droppable");
-      var isEmpty = (el.innerText || "").trim().length === 0 || (el.children.length === 0 && (el.innerText || "").trim().length < 3);
-      if(isDashed || isDroppable || (isEmpty && style.minHeight && parseInt(style.minHeight) > 20)) {
-        var rect = el.getBoundingClientRect();
-        if(rect.width > 30 && rect.height > 20) { dzSeen.add(el); dropZones.push(el); }
-      }
-    });
-  }
-
-  if(dragItems.length > 0) {
-    if(dropZones.length > 1) result.type = "reorder";
-    else result.type = "drag";
+  // If semantic drag selectors found real items, use them
+  if(dragItems.length >= 2 && dropZones.length >= 1) {
+    var zoneLabels = dropZones.map(function(z){ return (z.innerText || z.getAttribute("aria-label") || "").trim(); }).filter(Boolean);
+    if(dropZones.length > 1) {
+      result.type = "categorize";
+      result.matchRight = zoneLabels.length > 0 ? zoneLabels : dropZones.map(function(z){ return extractBlockText(z); });
+    } else { result.type = "drag"; }
     result.dropZones = dropZones;
-    dragItems.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); var im = optImg(el); if(im) result.images.push(im); });
+    dragItems.forEach(function(el) { result.options.push(extractBlockText(el)); result.elements.push(el); var im = optImg(el); if(im) result.images.push(im); });
     return result;
   }
 
-  // ═══ 9. DROPDOWN ═══
-  var dd = document.querySelector("button.options-dropdown") || document.querySelector('[class*="Dropdown"]') || document.querySelector('select[class*="answer"]') || document.querySelector('[class*="drop-down"]');
-  if(dd && dd.offsetParent !== null) { result.type = "dropdown"; result.inputElement = dd; var ddOpts = dd.querySelectorAll("option, li, [class*='item'], [class*='option']"); ddOpts.forEach(function(o){ if(o.innerText.trim()) result.options.push(o.innerText.trim()); }); return result; }
+  // ══════════════════════════════════════════════════════
+  // ═══ 9b. WAYGROUND GRID DETECTION (visual heuristic) ═══
+  // This MUST run BEFORE MCQ to avoid fragments showing as A,B,C,D...
+  // ══════════════════════════════════════════════════════
+  var gameArea = document.querySelector('[class*="game"], [class*="Game"], [class*="quiz"], [class*="Quiz"], [class*="gameplay"], [class*="Gameplay"], main, [class*="question-area"], [class*="QuestionArea"]');
+  if(gameArea) {
+    var allBlocks = [];
+    gameArea.querySelectorAll('div, button, [role="button"]').forEach(function(el) {
+      if(!vis(el) || el.closest("#qs-panel")) return;
+      var rect = el.getBoundingClientRect();
+      if(rect.width < 50 || rect.height < 35) return;
+      
+      var style = getComputedStyle(el);
+      var bgColor = style.backgroundColor;
+      var hasBg = (bgColor && bgColor !== "rgba(0, 0, 0, 0)" && bgColor !== "transparent" && bgColor !== "rgb(0, 0, 0)" && bgColor !== "rgb(255, 255, 255)");
+      var hasBgImage = (style.backgroundImage && style.backgroundImage !== "none");
+      if(!hasBg && !hasBgImage) return;
+      
+      var txt = (el.innerText || "").trim().replace(/\s+/g, " ");
+      if(txt.length < 1 || txt.length > 100) return;
+      
+      var hasDragAttr = el.getAttribute("draggable") === "true" || el.getAttribute("data-drag") || el.getAttribute("data-draggable");
+      var hasGrabCursor = style.cursor === "grab" || style.cursor === "move" || style.cursor === "pointer";
+      allBlocks.push({ el: el, text: txt, rect: rect, bg: bgColor, hasDrag: hasDragAttr || hasGrabCursor });
+    });
 
-  // ═══ 10. MATCH / CONNECT ═══
-  var matchSelectors = [
-    { left: '[class*="match"] [class*="left"], [class*="Match"] [class*="left"]', right: '[class*="match"] [class*="right"], [class*="Match"] [class*="right"]' },
-    { left: '[class*="match"] [class*="source"], [class*="Match"] [class*="source"]', right: '[class*="match"] [class*="target"], [class*="Match"] [class*="target"]' },
-    { left: '[class*="pair"] [class*="left"], [class*="Pair"] [class*="left"]', right: '[class*="pair"] [class*="right"], [class*="Pair"] [class*="right"]' },
-    { left: '[class*="connect"] [class*="source"], [class*="Connect"] [class*="source"]', right: '[class*="connect"] [class*="target"], [class*="Connect"] [class*="target"]' }
-  ];
-  for(var mi = 0; mi < matchSelectors.length; mi++) {
-    var matchLeft = document.querySelectorAll(matchSelectors[mi].left);
-    var matchRight = document.querySelectorAll(matchSelectors[mi].right);
-    if(matchLeft.length > 0 && matchRight.length > 0) {
-      result.type = "match"; result.matchRight = [];
-      matchLeft.forEach(function(el){ result.options.push(el.innerText.trim()); });
-      matchRight.forEach(function(el){ result.matchRight.push(el.innerText.trim()); });
-      result.elements = Array.from(matchLeft).concat(Array.from(matchRight));
+    // Remove blocks contained within other blocks (keep outermost)
+    var filteredBlocks = allBlocks.filter(function(block, idx) {
+      for(var oi = 0; oi < allBlocks.length; oi++) {
+        if(oi === idx) continue;
+        if(allBlocks[oi].el.contains(block.el) && allBlocks[oi].el !== block.el) return false;
+      }
+      return true;
+    });
+
+    // Need at least 4 blocks for a grid layout
+    if(filteredBlocks.length >= 4) {
+      // Check if these look like a grid (blocks have similar sizes)
+      var avgW = filteredBlocks.reduce(function(s,b){ return s + b.rect.width; },0) / filteredBlocks.length;
+      var avgH = filteredBlocks.reduce(function(s,b){ return s + b.rect.height; },0) / filteredBlocks.length;
+      var sameSize = filteredBlocks.filter(function(b){ return Math.abs(b.rect.width - avgW) < avgW*0.5 && Math.abs(b.rect.height - avgH) < avgH*0.5; });
+      
+      if(sameSize.length >= 4) {
+        // Determine layout: left (drag) vs right (drop) by splitting at midpoint
+        var allCenterX = sameSize.map(function(b){ return b.rect.left + b.rect.width/2; });
+        allCenterX.sort(function(a,b){ return a-b; });
+        var medianX = allCenterX[Math.floor(allCenterX.length/2)];
+        
+        // Check for two-column layout
+        var leftBlocks = sameSize.filter(function(b){ return (b.rect.left + b.rect.width/2) < medianX - 10; });
+        var rightBlocks = sameSize.filter(function(b){ return (b.rect.left + b.rect.width/2) > medianX + 10; });
+        
+        if(leftBlocks.length >= 2 && rightBlocks.length >= 2) {
+          leftBlocks.sort(function(a,b){ return a.rect.top - b.rect.top; });
+          rightBlocks.sort(function(a,b){ return a.rect.top - b.rect.top; });
+          
+          // Determine which side is drag (fractions/numbers) and which is drop (symbols)
+          var rightHasSymbols = rightBlocks.some(function(b){ return /^[<>≤≥=]+$/.test(b.text.trim()); });
+          var leftHasSymbols = leftBlocks.some(function(b){ return /^[<>≤≥=]+$/.test(b.text.trim()); });
+          
+          var srcBlocks, tgtBlocks;
+          if(rightHasSymbols && !leftHasSymbols) { srcBlocks = leftBlocks; tgtBlocks = rightBlocks; }
+          else if(leftHasSymbols && !rightHasSymbols) { srcBlocks = rightBlocks; tgtBlocks = leftBlocks; }
+          else {
+            // Default: left = drag, right = drop
+            var leftHasDrag = leftBlocks.some(function(b){ return b.hasDrag; });
+            var rightHasDrag = rightBlocks.some(function(b){ return b.hasDrag; });
+            if(leftHasDrag && !rightHasDrag) { srcBlocks = leftBlocks; tgtBlocks = rightBlocks; }
+            else if(rightHasDrag && !leftHasDrag) { srcBlocks = rightBlocks; tgtBlocks = leftBlocks; }
+            else { srcBlocks = leftBlocks; tgtBlocks = rightBlocks; }
+          }
+          
+          result.type = tgtBlocks.length > 1 ? "categorize" : "drag";
+          srcBlocks.forEach(function(b){ result.options.push(extractBlockText(b.el)); result.elements.push(b.el); });
+          tgtBlocks.forEach(function(b){ result.dropZones.push(b.el); });
+          result.matchRight = tgtBlocks.map(function(b){ return extractBlockText(b.el); });
+          return result;
+        }
+        
+        // ═══ TOP/BOTTOM ROW DETECTION (Quizizz Match) ═══
+        // If left/right split failed, try top/bottom split
+        if(leftBlocks.length < 2 || rightBlocks.length < 2) {
+          var allCenterY = sameSize.map(function(b){ return b.rect.top + b.rect.height/2; });
+          allCenterY.sort(function(a,b){ return a-b; });
+          // Find gap between rows
+          var maxGap = 0, gapY = 0;
+          for(var gi = 1; gi < allCenterY.length; gi++) {
+            var gap = allCenterY[gi] - allCenterY[gi-1];
+            if(gap > maxGap) { maxGap = gap; gapY = (allCenterY[gi] + allCenterY[gi-1]) / 2; }
+          }
+          if(maxGap > 20 && gapY > 0) {
+            var topRow = sameSize.filter(function(b){ return (b.rect.top + b.rect.height/2) < gapY; });
+            var bottomRow = sameSize.filter(function(b){ return (b.rect.top + b.rect.height/2) > gapY; });
+            if(topRow.length >= 2 && bottomRow.length >= 2) {
+              // Determine which row is drag (colored/vibrant) and which is drop (darker/muted)
+              var topHasDrag = topRow.some(function(b){ return b.hasDrag; });
+              var bottomHasDrag = bottomRow.some(function(b){ return b.hasDrag; });
+              var topAvgBrightness = 0, bottomAvgBrightness = 0;
+              topRow.forEach(function(b) {
+                var rgb = b.bg.match(/rgb[a]?\((\d+),\s*(\d+),\s*(\d+)/);
+                if(rgb) topAvgBrightness += (parseInt(rgb[1]) + parseInt(rgb[2]) + parseInt(rgb[3])) / 3;
+              });
+              bottomRow.forEach(function(b) {
+                var rgb = b.bg.match(/rgb[a]?\((\d+),\s*(\d+),\s*(\d+)/);
+                if(rgb) bottomAvgBrightness += (parseInt(rgb[1]) + parseInt(rgb[2]) + parseInt(rgb[3])) / 3;
+              });
+              topAvgBrightness /= topRow.length; bottomAvgBrightness /= bottomRow.length;
+              var srcRow, tgtRow;
+              if(topHasDrag && !bottomHasDrag) { srcRow = topRow; tgtRow = bottomRow; }
+              else if(bottomHasDrag && !topHasDrag) { srcRow = bottomRow; tgtRow = topRow; }
+              else if(topAvgBrightness > bottomAvgBrightness + 10) { srcRow = topRow; tgtRow = bottomRow; }
+              else if(bottomAvgBrightness > topAvgBrightness + 10) { srcRow = bottomRow; tgtRow = topRow; }
+              else { srcRow = topRow; tgtRow = bottomRow; }
+              srcRow.sort(function(a,b){ return a.rect.left - b.rect.left; });
+              tgtRow.sort(function(a,b){ return a.rect.left - b.rect.left; });
+              result.type = "match";
+              srcRow.forEach(function(b){ result.options.push(extractBlockText(b.el)); result.elements.push(b.el); });
+              tgtRow.forEach(function(b){ result.dropZones.push(b.el); });
+              result.matchRight = tgtRow.map(function(b){ return extractBlockText(b.el); });
+              return result;
+            }
+          }
+        }
+
+        // Single-column layout (all blocks are drag items, find drop zones separately)
+        if(leftBlocks.length < 2 || rightBlocks.length < 2) {
+          // Check for draggable blocks + dashed-border drop zones
+          var dragBlocks = sameSize.filter(function(b){ return b.hasDrag; });
+          if(dragBlocks.length >= 2) {
+            var dzSeen = new Set();
+            var foundDropZones = [];
+            document.querySelectorAll('div, span, section, [class*="answer"], [class*="blank"]').forEach(function(el) {
+              if(!vis(el) || dzSeen.has(el) || el.closest("#qs-panel")) return;
+              var style = getComputedStyle(el);
+              var isDashed = style.borderStyle && style.borderStyle.indexOf("dashed") >= 0;
+              var isDroppable = el.getAttribute("droppable") === "true" || el.getAttribute("data-drop");
+              if(isDashed || isDroppable) {
+                var rect = el.getBoundingClientRect();
+                if(rect.width > 30 && rect.height > 20) { dzSeen.add(el); foundDropZones.push(el); }
+              }
+            });
+            result.type = foundDropZones.length > 1 ? "categorize" : "drag";
+            dragBlocks.forEach(function(b){ result.options.push(extractBlockText(b.el)); result.elements.push(b.el); });
+            result.dropZones = foundDropZones;
+            if(foundDropZones.length > 0) result.matchRight = foundDropZones.map(function(z){ return (z.innerText||"").trim() || "[zona]"; });
+            return result;
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback drag: detect blocks by visual heuristics (draggable attribute)
+  if(dragItems.length === 0) {
+    var candidateBlocks = document.querySelectorAll('button, [role="button"], [tabindex="0"]');
+    var blockCandidates = [];
+    candidateBlocks.forEach(function(el) {
+      if(!vis(el)) return;
+      var txt = (el.innerText || "").trim();
+      if(txt.length >= 1 && txt.length <= 40) {
+        var style = getComputedStyle(el);
+        var hasDragAttr = el.getAttribute("draggable") === "true" || el.getAttribute("data-drag") || el.getAttribute("data-draggable");
+        var hasDragHandle = el.querySelector('svg') && el.innerHTML.match(/circle|dot|grip|drag|handle/i);
+        var hasGrabCursor = style.cursor === "grab" || style.cursor === "move";
+        if(hasDragAttr || hasDragHandle || hasGrabCursor) blockCandidates.push(el);
+      }
+    });
+    if(blockCandidates.length >= 2) {
+      dragItems = blockCandidates;
+      // Find drop zones by dashed borders
+      var dzSeen2 = new Set();
+      document.querySelectorAll('div, span, section, [class*="answer"], [class*="blank"]').forEach(function(el) {
+        if(!vis(el) || dzSeen2.has(el)) return;
+        var style = getComputedStyle(el);
+        var isDashed = style.borderStyle && style.borderStyle.indexOf("dashed") >= 0;
+        var isDroppable = el.getAttribute("droppable") === "true" || el.getAttribute("data-drop");
+        if(isDashed || isDroppable) {
+          var rect = el.getBoundingClientRect();
+          if(rect.width > 30 && rect.height > 20) { dzSeen2.add(el); dropZones.push(el); }
+        }
+      });
+      var zoneLabels2 = dropZones.map(function(z){ return (z.innerText||"").trim(); }).filter(Boolean);
+      result.type = dropZones.length > 1 ? "categorize" : "drag";
+      result.dropZones = dropZones;
+      if(dropZones.length > 0) result.matchRight = zoneLabels2.length > 0 ? zoneLabels2 : dropZones.map(function(z){ return extractBlockText(z); });
+      dragItems.forEach(function(el) { result.options.push(extractBlockText(el)); result.elements.push(el); });
       return result;
     }
   }
 
-  // ═══ 11. TRUE/FALSE (may require multiple selections) ═══
-  // First check for multi-statement T/F (each statement has T and F buttons)
-  var tfStatements = document.querySelectorAll('[class*="true-false-statement"], [class*="TrueFalseStatement"], [class*="tf-row"], [class*="TfRow"], [class*="statement-row"], [class*="StatementRow"]');
-  if(tfStatements.length > 1) {
-    result.type = "true_false_multi";
-    tfStatements.forEach(function(stmt) {
-      var text = "";
-      var stmtText = stmt.querySelector('[class*="text"], [class*="statement"], p, span');
-      if(stmtText) text = stmtText.innerText.trim();
-      else text = stmt.innerText.trim().split("\n")[0];
-      result.options.push(text);
-      result.elements.push(stmt);
-      // Find T/F buttons within this statement
-      var tfBtns = stmt.querySelectorAll('button, [role="radio"], [role="checkbox"], [class*="option"]');
-      if(tfBtns.length >= 2) {
-        result.dropZones.push({ stmt: stmt, buttons: Array.from(tfBtns) });
-      }
+  // ══════════════════════════════════════════════════════
+  // ═══ 10. DROPDOWN ═══
+  // ══════════════════════════════════════════════════════
+  var dd = qFirst([
+    'button.options-dropdown', '[class*="Dropdown"][class*="answer"]', '[class*="dropdown"][class*="answer"]',
+    'select[class*="answer"]', 'select[class*="response"]', '[class*="drop-down"][class*="answer"]',
+    '[class*="select-answer"]', '[class*="SelectAnswer"]',
+    '[data-testid*="dropdown"]', '[role="listbox"]:not([class*="fill"])'
+  ]);
+  if(dd) {
+    result.type = "dropdown"; result.inputElement = dd;
+    dd.querySelectorAll("option, li, [class*='item'], [class*='option'], [role='option']").forEach(function(o) {
+      var t = o.innerText.trim();
+      if(t && t.length > 0 && t !== "--" && t.toLowerCase() !== "select" && t.toLowerCase() !== "selecione") result.options.push(t);
     });
     return result;
   }
 
-  // ═══ 12. MCQ / MSQ / SIMPLE TRUE-FALSE ═══
+  // ══════════════════════════════════════════════════════
+  // ═══ 11. MATCH / CONNECT ═══
+  // ══════════════════════════════════════════════════════
+  var matchPairs = [
+    { left: '[class*="match"] [class*="left"], [class*="Match"] [class*="left"]', right: '[class*="match"] [class*="right"], [class*="Match"] [class*="right"]' },
+    { left: '[class*="match"] [class*="source"], [class*="Match"] [class*="source"]', right: '[class*="match"] [class*="target"], [class*="Match"] [class*="target"]' },
+    { left: '[class*="pair"] [class*="left"], [class*="Pair"] [class*="left"]', right: '[class*="pair"] [class*="right"], [class*="Pair"] [class*="right"]' },
+    { left: '[class*="connect"] [class*="source"], [class*="Connect"] [class*="source"]', right: '[class*="connect"] [class*="target"], [class*="Connect"] [class*="target"]' },
+    { left: '[class*="match-left"], [class*="MatchLeft"]', right: '[class*="match-right"], [class*="MatchRight"]' },
+    { left: '[data-testid*="match-left"]', right: '[data-testid*="match-right"]' }
+  ];
+  for(var mi = 0; mi < matchPairs.length; mi++) {
+    var mLeft = qAll(matchPairs[mi].left.split(",").map(function(s){ return s.trim(); }));
+    var mRight = qAll(matchPairs[mi].right.split(",").map(function(s){ return s.trim(); }));
+    if(mLeft.length > 0 && mRight.length > 0) {
+      result.type = "match"; result.matchRight = [];
+      mLeft.forEach(function(el){ result.options.push(el.innerText.trim()); });
+      mRight.forEach(function(el){ result.matchRight.push(el.innerText.trim()); });
+      result.elements = mLeft.concat(mRight);
+      return result;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 12. TRUE/FALSE MULTI-STATEMENT ═══
+  // ══════════════════════════════════════════════════════
+  var tfStmts = qAll([
+    '[class*="true-false-statement"]', '[class*="TrueFalseStatement"]',
+    '[class*="tf-row"]', '[class*="TfRow"]',
+    '[class*="statement-row"]', '[class*="StatementRow"]',
+    '[class*="tf-statement"]', '[class*="TFStatement"]',
+    '[data-testid*="tf-statement"]', '[data-testid*="true-false-row"]'
+  ]);
+  if(tfStmts.length > 1) {
+    result.type = "true_false_multi";
+    tfStmts.forEach(function(stmt) {
+      var stmtText = stmt.querySelector('[class*="text"], [class*="statement"], p, span');
+      var text = stmtText ? stmtText.innerText.trim() : stmt.innerText.trim().split("\n")[0];
+      result.options.push(text);
+      result.elements.push(stmt);
+      var tfBtns = stmt.querySelectorAll('button, [role="radio"], [role="checkbox"], [class*="option"]');
+      if(tfBtns.length >= 2) result.dropZones.push({ stmt: stmt, buttons: Array.from(tfBtns) });
+    });
+    return result;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 12b. V/F WAYGROUND HEURISTIC ═══
+  // Detect rows where each row has a statement and True/False buttons
+  // ══════════════════════════════════════════════════════
+  if(gameArea) {
+    // Look for groups of buttons with V/F or True/False text
+    var vfBtns = [];
+    gameArea.querySelectorAll('button, [role="button"], [role="radio"], [role="checkbox"]').forEach(function(btn) {
+      if(!vis(btn)) return;
+      var t = (btn.innerText || "").trim().toLowerCase();
+      if(t === "v" || t === "f" || t === "true" || t === "false" || t === "verdadeiro" || t === "falso") {
+        vfBtns.push(btn);
+      }
+    });
+    // V/F buttons come in pairs (V + F for each statement)
+    if(vfBtns.length >= 4 && vfBtns.length % 2 === 0) {
+      result.type = "true_false_multi";
+      // Group into pairs by proximity (each pair shares a similar Y position)
+      vfBtns.sort(function(a,b) { return a.getBoundingClientRect().top - b.getBoundingClientRect().top || a.getBoundingClientRect().left - b.getBoundingClientRect().left; });
+      var pairs = [];
+      for(var vi = 0; vi < vfBtns.length; vi += 2) {
+        if(vi+1 < vfBtns.length) pairs.push([vfBtns[vi], vfBtns[vi+1]]);
+      }
+      // For each pair, find the nearest statement text (sibling or parent text)
+      pairs.forEach(function(pair, idx) {
+        var parentRow = pair[0].closest('div, li, tr, [class*="row"], [class*="statement"]');
+        var statementText = "";
+        if(parentRow) {
+          // Get text from the row excluding the buttons themselves
+          var clone = parentRow.cloneNode(true);
+          clone.querySelectorAll('button, [role="button"], [role="radio"], [role="checkbox"]').forEach(function(b){ b.remove(); });
+          statementText = clone.innerText.trim().replace(/\s+/g, " ");
+        }
+        if(!statementText) statementText = "Afirmação " + (idx+1);
+        result.options.push(statementText);
+        result.elements.push(parentRow || pair[0]);
+        result.dropZones.push({ stmt: parentRow || pair[0], buttons: pair });
+      });
+      if(result.options.length >= 2) return result;
+      // Reset if detection failed
+      result = { type: "unknown", options: [], images: [], elements: [], dropZones: [], inputElement: null, matchRight: null, fillBlanks: [] };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ═══ 13. MCQ / MSQ / SIMPLE TRUE-FALSE (MAIN) ═══
+  // ══════════════════════════════════════════════════════
   var optSelectors = [
-    '.option.is-selectable','[data-testid="option"]','[data-testid="answer-option"]',
-    '[class*="OptionCard"]','[class*="option-card"]','.options-container .option',
-    '[class*="MCQOption"]','[class*="mcq-option"]','.option-item','.answer-option',
-    'button[class*="option"]','[role="option"]','[class*="AnswerOption"]','[class*="answerOption"]',
-    '[class*="true-false"] button','[class*="TrueFalse"] button',
-    '[class*="choice"]','[class*="Choice"]','[class*="alternative"]','[class*="Alternative"]',
-    // Wayground specific
-    '[class*="answer-choice"]','[class*="AnswerChoice"]',
-    '[class*="quiz-option"]','[class*="QuizOption"]',
-    '[class*="response-option"]','[class*="ResponseOption"]'
+    '.option.is-selectable', '[data-testid="option"]', '[data-testid="answer-option"]',
+    '[data-testid="option-container"]', '[data-cy="option"]',
+    '[class*="OptionCard"]', '[class*="option-card"]', '[class*="optionCard"]',
+    '.options-container .option', '.options-list .option',
+    '[class*="MCQOption"]', '[class*="mcq-option"]', '[class*="mcqOption"]',
+    '.option-item', '.answer-option',
+    '[role="option"]', '[role="radio"][class*="option"]', '[role="checkbox"][class*="option"]',
+    'button[class*="option"]:not([class*="dropdown"])',
+    '[class*="AnswerOption"]', '[class*="answerOption"]', '[class*="answer-option"]',
+    '[class*="choice"]', '[class*="Choice"]',
+    '[class*="alternative"]', '[class*="Alternative"]',
+    '[class*="true-false"] button', '[class*="TrueFalse"] button',
+    '[class*="answer-choice"]', '[class*="AnswerChoice"]',
+    '[class*="quiz-option"]', '[class*="QuizOption"]',
+    '[class*="response-option"]', '[class*="ResponseOption"]',
+    '[class*="game-option"]', '[class*="GameOption"]',
+    '[class*="option-button"]', '[class*="OptionButton"]'
   ];
   var optEls = [];
   for(var si = 0; si < optSelectors.length; si++) {
-    var found = document.querySelectorAll(optSelectors[si]);
-    if(found.length >= 2) { optEls = Array.from(found).filter(function(el){ return el.offsetParent !== null && !el.closest("#qs-panel"); }); if(optEls.length >= 2) break; }
+    try {
+      var found = document.querySelectorAll(optSelectors[si]);
+      var filtered = [];
+      for(var fi = 0; fi < found.length; fi++) { if(vis(found[fi])) filtered.push(found[fi]); }
+      if(filtered.length >= 2) { optEls = filtered; break; }
+    } catch(e) {}
   }
+
+  // Fallback: find clickable containers with option-like patterns
+  if(optEls.length < 2) {
+    var gameArea2 = document.querySelector('[class*="game"], [class*="Game"], [class*="quiz"], [class*="Quiz"], [class*="question-area"], main, [class*="gameplay"]');
+    if(gameArea2) {
+      var containers = gameArea2.querySelectorAll('[class*="option"], [class*="answer"]');
+      var validOpts = [];
+      containers.forEach(function(el) {
+        if(vis(el) && el.innerText.trim().length > 0 && !el.querySelector('[class*="option"]')) validOpts.push(el);
+      });
+      if(validOpts.length >= 2) optEls = validOpts;
+    }
+  }
+
   if(optEls.length >= 2) {
-    var allTexts = optEls.map(function(el){ return optText(el).toLowerCase(); });
-    var isTF = optEls.length === 2 && ((allTexts.indexOf("true") >= 0 && allTexts.indexOf("false") >= 0) || (allTexts.indexOf("verdadeiro") >= 0 && allTexts.indexOf("falso") >= 0) || (allTexts.indexOf("v") >= 0 && allTexts.indexOf("f") >= 0));
-    
-    // MSQ detection - check for checkboxes or multi-select indicators
-    var isMSQ = optEls.some(function(el){
-      return el.classList.toString().match(/msq|multi-select|multiSelect|checkbox/i) ||
-             el.getAttribute("data-type") === "msq" ||
-             el.closest('[class*="multi-select"]') || el.closest('[class*="MultiSelect"]') || el.closest('[class*="checkbox"]') ||
-             el.querySelector('input[type="checkbox"]') ||
-             el.querySelector('[class*="checkbox"]');
+    // SAFETY CHECK: skip if these look like draggable match blocks, not MCQ options
+    var draggableCount = 0;
+    optEls.forEach(function(el) {
+      if(el.getAttribute("draggable") === "true" || (getComputedStyle(el).cursor === "grab" || getComputedStyle(el).cursor === "move")) draggableCount++;
+      var svgInner = el.innerHTML || "";
+      if(svgInner.match(/circle.*circle.*circle|grip|drag-handle|dots/i)) draggableCount++;
     });
-    
+    if(draggableCount >= optEls.length * 0.5) {
+      // Most options are draggable - this is likely a drag/match question, not MCQ
+      return result;
+    }
+    // SAFETY CHECK: filter out single-letter fragments that are game block artifacts
+    var texts = optEls.map(function(el){ return optText(el); });
+    var allSingleChar = texts.every(function(t){ return t.length <= 2; });
+    var hasManyOpts = optEls.length > 6;
+    // If all options are single characters and there are many of them, this is likely
+    // fragmented game block detection (A, B, C, D, E, F, G...), skip it
+    if(allSingleChar && hasManyOpts) {
+      return result; // Return unknown
+    }
+
+    var allTexts = optEls.map(function(el){ return optText(el).toLowerCase(); });
+    var isTF = optEls.length === 2 && (
+      (allTexts.indexOf("true") >= 0 && allTexts.indexOf("false") >= 0) ||
+      (allTexts.indexOf("verdadeiro") >= 0 && allTexts.indexOf("falso") >= 0) ||
+      (allTexts.indexOf("v") >= 0 && allTexts.indexOf("f") >= 0) ||
+      (allTexts.indexOf("sim") >= 0 && allTexts.indexOf("nao") >= 0) ||
+      (allTexts.indexOf("yes") >= 0 && allTexts.indexOf("no") >= 0)
+    );
+
+    var isMSQ = optEls.some(function(el) {
+      return el.classList.toString().match(/msq|multi-select|multiSelect|checkbox/i) ||
+        el.getAttribute("data-type") === "msq" ||
+        el.closest('[class*="multi-select"], [class*="MultiSelect"], [class*="checkbox-group"], [class*="CheckboxGroup"]') ||
+        el.querySelector('input[type="checkbox"], [class*="checkbox"], [role="checkbox"]');
+    });
+
     var hasImages = false;
     optEls.forEach(function(el) {
       var t = optText(el); var im = optImg(el);
       result.options.push(t); result.elements.push(el);
       if(im) { result.images.push(im); hasImages = true; } else { result.images.push(null); }
     });
+
     if(isTF) result.type = "true_false";
     else if(hasImages && !result.options.some(function(o){ return o.length > 3; })) result.type = isMSQ ? "image_multi" : "image_single";
     else result.type = isMSQ ? "multi" : "single";
     return result;
   }
 
-  // ═══ 13. POLL ═══
-  var pollOpts = document.querySelectorAll('[class*="poll"] .option, [class*="Poll"] .option');
-  if(pollOpts.length > 0) { result.type = "poll"; pollOpts.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); }); return result; }
+  // ══════════════════════════════════════════════════════
+  // ═══ 14. POLL ═══
+  // ══════════════════════════════════════════════════════
+  var pollOpts = qAll([
+    '[class*="poll"] .option', '[class*="Poll"] .option',
+    '[class*="poll-option"]', '[class*="PollOption"]',
+    '[data-testid*="poll-option"]'
+  ]);
+  if(pollOpts.length > 0) {
+    result.type = "poll";
+    pollOpts.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); });
+    return result;
+  }
 
-  // ═══ 14. COMPLETE THE SENTENCE (select words) ═══
-  var wordSelects = document.querySelectorAll('[class*="word-select"], [class*="WordSelect"], [class*="selectable-word"], [class*="SelectableWord"], [class*="tap-word"], [class*="TapWord"]');
-  if(wordSelects.length > 2) {
+  // ══════════════════════════════════════════════════════
+  // ═══ 15. WORD SELECT ═══
+  // ══════════════════════════════════════════════════════
+  var wordSels = qAll([
+    '[class*="word-select"]', '[class*="WordSelect"]',
+    '[class*="selectable-word"]', '[class*="SelectableWord"]',
+    '[class*="tap-word"]', '[class*="TapWord"]',
+    '[class*="clickable-word"]', '[class*="ClickableWord"]',
+    '[data-testid*="word-select"]'
+  ]);
+  if(wordSels.length > 2) {
     result.type = "word_select";
-    wordSelects.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); });
+    wordSels.forEach(function(el) { result.options.push(el.innerText.trim()); result.elements.push(el); });
     return result;
   }
 
@@ -1653,12 +2167,13 @@ function buildPrompt(data, screenshotB64) {
       match: "CONECTAR. Formato: Esquerda -> Direita",
       true_false: "Responda APENAS: True ou False",
       true_false_multi: "VERDADEIRO/FALSO para CADA afirmacao. Responda cada uma em uma linha:\n1. True/False\n2. True/False\netc.",
-      categorize: "CATEGORIZAR blocos. Formato:\nItem -> Categoria\nItem2 -> Categoria2",
+      categorize: "CATEGORIZAR/COMBINAR blocos com zonas. Para cada bloco da esquerda, indique a zona correta da direita. Formato OBRIGATORIO:\nTextoDoBloco -> SimboloDaZona\nTextoDoBloco2 -> SimboloDaZona2\nExemplo para fracoes: 21/21 72/72 -> =\n9/8 9/4 -> >\nIMPORTANTE: use EXATAMENTE o texto dos blocos e simbolos fornecidos.",
       labeling: "ROTULAR. Rotulo correto para cada espaco.",
       hotspot: "HOTSPOT. Descreva a area correta para clicar.",
       poll: "ENQUETE. Escolha a mais adequada.",
       fill_select: "COMPLETAR A FRASE selecionando. Responda a(s) palavra(s) correta(s) para cada espaco, numeradas:\n1. palavra\n2. palavra",
       word_select: "SELECIONAR PALAVRAS corretas. Liste as palavras que devem ser selecionadas, separadas por virgula.",
+      table_select: "TABELA/GRID. Analise a tabela e indique as celulas corretas. Para cada linha, indique a coluna correta. Formato:\n1. NomeColuna\n2. NomeColuna",
       unknown: "Analise e responda da forma mais adequada."
     };
     
@@ -1675,13 +2190,22 @@ function buildPrompt(data, screenshotB64) {
       if(data.questionType === "true_false_multi") {
         textContent += "\n\nAFIRMACOES:";
         data.options.forEach(function(o, i) { textContent += "\n" + (i+1) + ". " + o; });
+      } else if(data.questionType === "drag" || data.questionType === "categorize") {
+        textContent += "\n\nBLOCOS:";
+        data.options.forEach(function(o, i) { textContent += "\n" + (i+1) + ". " + (o || "[Bloco]"); });
+      } else if(data.questionType === "true_false") {
+        textContent += "\n\nOPCOES:";
+        data.options.forEach(function(o) { textContent += "\n- " + (o || "V/F"); });
+      } else if(data.questionType === "reorder") {
+        textContent += "\n\nBLOCOS PARA ORDENAR:";
+        data.options.forEach(function(o, i) { textContent += "\n" + (i+1) + ". " + (o || "[Bloco]"); });
       } else {
         textContent += "\n\nALTERNATIVAS:";
         data.options.forEach(function(o, i) { textContent += "\n" + String.fromCharCode(65+i) + ") " + (o || "[Imagem]"); });
       }
     }
     if(data.matchRight) {
-      textContent += "\n\n" + (data.questionType === "categorize" ? "CATEGORIAS:" : "ITENS DIREITA:");
+      textContent += "\n\n" + (data.questionType === "categorize" ? "ZONAS/CATEGORIAS:" : data.questionType === "drag" ? "ZONAS DE DESTINO:" : "ITENS DIREITA:");
       data.matchRight.forEach(function(r, i) { textContent += "\n" + (i+1) + ". " + r; });
     }
     userParts.push({type: "text", text: textContent});
@@ -1727,6 +2251,7 @@ function detect() {
     match: "Conectar", true_false: "V ou F", true_false_multi: "V/F Multiplo",
     poll: "Enquete", categorize: "Categorizar Blocos", labeling: "Rotular",
     hotspot: "Hotspot", fill_select: "Completar (Selecionar)", word_select: "Selecionar Palavras",
+    table_select: "Tabela/Grid",
     unknown: "Desconhecido"
   };
   tpEl.textContent = typeNames[data.questionType] || data.questionType;
@@ -1737,18 +2262,65 @@ function detect() {
   }
   if(data.questionImages.length > 0) { html += '<div style="display:flex;gap:3px;flex-wrap:wrap;margin:4px 0">'; data.questionImages.forEach(function(src){ html += '<img src="'+src+'" style="max-width:80px;max-height:60px;border-radius:6px;border:1px solid rgba(139,92,246,0.15)">'; }); html += '</div>'; }
   if(data.options.length > 0) {
-    html += '<div class="qs-ol">';
-    data.options.forEach(function(o, i) {
-      var letter = data.questionType === "true_false_multi" ? (i+1)+"." : String.fromCharCode(65 + i);
-      var imgHtml = (data.optionImages && data.optionImages[i]) ? '<img src="'+data.optionImages[i]+'" style="max-width:40px;border-radius:4px;margin-left:4px">' : '';
-      html += '<div class="qs-oi"><span class="qs-ol-letter">'+letter+'</span> ' + (o || '[Imagem]') + imgHtml + '</div>';
-    });
-    html += '</div>';
+    if((data.questionType === "drag" || data.questionType === "categorize") && ((data.dropZones && data.dropZones.length > 0) || (data.matchRight && data.matchRight.length > 0))) {
+      html += '<div class="qs-blocks">';
+      var zoneLabels = (data.matchRight && data.matchRight.length > 0) ? data.matchRight : data.dropZones.map(function(z){ return (z.innerText||"").trim(); });
+      var maxRows = Math.max(data.options.length, zoneLabels.length);
+      for(var bi = 0; bi < maxRows; bi++) {
+        html += '<div class="qs-block-row">';
+        if(bi < data.options.length) {
+          var optTxt = data.options[bi] || "[Imagem]";
+          var fracParts = optTxt.match(/(\d+)\/(\d+)/g);
+          if(fracParts && fracParts.length > 0) {
+            html += '<div class="qs-block-drag">';
+            fracParts.forEach(function(fp, fi) {
+              var nums = fp.split("/");
+              if(fi > 0) html += '<span style="margin:0 4px;color:rgba(255,255,255,0.25)">&nbsp;</span>';
+              html += '<span class="qs-frac"><span class="qs-frac-num">'+nums[0]+'</span><span class="qs-frac-den">'+nums[1]+'</span></span>';
+            });
+            html += '</div>';
+          } else html += '<div class="qs-block-drag">'+optTxt+'</div>';
+        } else html += '<div class="qs-block-drag" style="opacity:0.3">—</div>';
+        html += '<div class="qs-block-sep">→</div>';
+        if(bi < zoneLabels.length) html += '<div class="qs-block-drop">'+zoneLabels[bi]+'</div>';
+        else html += '<div class="qs-block-drop" style="opacity:0.3">?</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+    } else if(data.questionType === "reorder") {
+      html += '<div class="qs-blocks">';
+      data.options.forEach(function(o, i) {
+        html += '<div class="qs-block-row"><div class="qs-block-drag" style="flex:1"><span style="color:#a78bfa;font-size:10px;margin-right:6px">'+(i+1)+'.</span>'+(o||"[Imagem]")+'</div></div>';
+      });
+      html += '</div>';
+    } else if(data.questionType === "true_false_multi") {
+      html += '<div class="qs-blocks">';
+      data.options.forEach(function(o, i) {
+        html += '<div class="qs-block-row"><div class="qs-block-drag" style="justify-content:flex-start;text-align:left;line-height:1.45">'+o+'</div><div class="qs-block-drop" style="flex:0 0 72px">V / F</div></div>';
+      });
+      html += '</div>';
+    } else if(data.questionType === "true_false") {
+      html += '<div class="qs-block-row">';
+      data.options.forEach(function(o) {
+        html += '<div class="qs-block-drop" style="flex:1 1 0">'+(o || 'V/F')+'</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="qs-ol">';
+      data.options.forEach(function(o, i) {
+        var letter = String.fromCharCode(65 + i);
+        var imgHtml = (data.optionImages && data.optionImages[i]) ? '<img src="'+data.optionImages[i]+'" style="max-width:40px;border-radius:4px;margin-left:4px">' : '';
+        html += '<div class="qs-oi"><span class="qs-ol-letter">'+letter+'</span> ' + (o || '[Imagem]') + imgHtml + '</div>';
+      });
+      html += '</div>';
+    }
   }
   var imgCount = data.questionImages.length + data.allImages.length;
   if(imgCount > 0 || S.settings.screenshotMode) vbEl.style.display = "inline-flex"; else vbEl.style.display = "none";
   qEl.className = "qs-qt"; qEl.innerHTML = html;
-  setStatus((typeNames[data.questionType]||"?") + " | " + data.options.length + " opcoes" + (data.passageText ? " | Texto ref." : ""), "suc");
+  var dzCount = (data.dropZones ? data.dropZones.length : 0);
+  var statusExtra = (data.questionType === "drag" || data.questionType === "categorize") ? data.options.length + " blocos" + (dzCount > 0 ? " → " + dzCount + " zonas" : "") : (data.questionType === "true_false_multi" ? data.options.length + " afirmações" : (data.questionType === "true_false" ? data.options.length + " opções V/F" : data.options.length + " opcoes"));
+  setStatus((typeNames[data.questionType]||"?") + " | " + statusExtra + (data.passageText ? " | Texto ref." : ""), "suc");
   return data;
 }
 
@@ -1782,76 +2354,73 @@ function solve() {
 function detectAndSolve() { var data = detect(); if(data) setTimeout(solve, 200); }
 
 // ═══ DRAG-DROP SIMULATION HELPERS ═══
+function _center(el) {
+  var r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
 function simulateDragDrop(srcEl, tgtEl) {
+  if(!srcEl || !tgtEl) return false;
+  var success = false;
   try {
-    var srcRect = srcEl.getBoundingClientRect();
-    var tgtRect = tgtEl.getBoundingClientRect();
-    var srcX = srcRect.left + srcRect.width / 2;
-    var srcY = srcRect.top + srcRect.height / 2;
-    var tgtX = tgtRect.left + tgtRect.width / 2;
-    var tgtY = tgtRect.top + tgtRect.height / 2;
+    srcEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+    tgtEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+  } catch(e) {}
 
-    // Create DataTransfer
+  var src = _center(srcEl);
+  var tgt = _center(tgtEl);
+
+  // Method 1: Native HTML5 drag events
+  try {
     var dt;
-    try { dt = new DataTransfer(); } catch(e) { dt = { data: {}, setData: function(k,v){ this.data[k]=v; }, getData: function(k){ return this.data[k]||""; }, types: [], effectAllowed: "all", dropEffect: "move" }; }
-    dt.setData("text/plain", srcEl.innerText || "");
+    try { dt = new DataTransfer(); }
+    catch(e) { dt = { data: {}, setData: function(k,v){ this.data[k]=v; }, getData: function(k){ return this.data[k]||""; }, types: [], effectAllowed: "all", dropEffect: "move" }; }
+    dt.setData("text/plain", (srcEl.innerText || "").trim());
 
-    // Mouse-based drag events
-    var evtInit = function(type, x, y, target) {
-      return new DragEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt, composed: true });
-    };
-
-    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: srcX, clientY: srcY }));
-    srcEl.dispatchEvent(evtInit("dragstart", srcX, srcY, srcEl));
-    srcEl.dispatchEvent(evtInit("drag", srcX, srcY, srcEl));
-    tgtEl.dispatchEvent(evtInit("dragenter", tgtX, tgtY, tgtEl));
-    tgtEl.dispatchEvent(evtInit("dragover", tgtX, tgtY, tgtEl));
-    tgtEl.dispatchEvent(evtInit("drop", tgtX, tgtY, tgtEl));
-    srcEl.dispatchEvent(evtInit("dragend", tgtX, tgtY, srcEl));
-    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: tgtX, clientY: tgtY }));
-
-    log("Drag simulado: " + (srcEl.innerText||"").trim().substring(0,20) + " → zona", "inf");
-  } catch(e) {
-    log("Drag fallback: " + e.message, "wrn");
-    // Fallback: Pointer events
-    try {
-      var sr = srcEl.getBoundingClientRect();
-      var tr = tgtEl.getBoundingClientRect();
-      srcEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles:true, clientX:sr.left+sr.width/2, clientY:sr.top+sr.height/2, pointerId:1 }));
-      srcEl.dispatchEvent(new PointerEvent("pointermove", { bubbles:true, clientX:tr.left+tr.width/2, clientY:tr.top+tr.height/2, pointerId:1 }));
-      tgtEl.dispatchEvent(new PointerEvent("pointerup", { bubbles:true, clientX:tr.left+tr.width/2, clientY:tr.top+tr.height/2, pointerId:1 }));
-    } catch(e2) {}
+    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: src.x, clientY: src.y }));
+    srcEl.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: src.x, clientY: src.y, dataTransfer: dt }));
+    tgtEl.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
+    tgtEl.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
+    tgtEl.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
+    srcEl.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y, dataTransfer: dt }));
+    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, clientX: tgt.x, clientY: tgt.y }));
+    success = true;
+  } catch(e1) {
+    log("DragEvent fallback: " + e1.message, "wrn");
   }
+
+  // Method 2: Pointer + mouse chain (works better in modern React UIs)
+  try {
+    var pid = Date.now() % 10000;
+    srcEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:src.x, clientY:src.y, buttons:1 }));
+    srcEl.dispatchEvent(new MouseEvent("mousedown", { bubbles:true, cancelable:true, clientX:src.x, clientY:src.y, buttons:1 }));
+    for(var st = 1; st <= 6; st++) {
+      var mx = src.x + (tgt.x - src.x) * (st / 6);
+      var my = src.y + (tgt.y - src.y) * (st / 6);
+      document.dispatchEvent(new PointerEvent("pointermove", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:mx, clientY:my, buttons:1 }));
+      document.dispatchEvent(new MouseEvent("mousemove", { bubbles:true, cancelable:true, clientX:mx, clientY:my, buttons:1 }));
+    }
+    tgtEl.dispatchEvent(new PointerEvent("pointerup", { bubbles:true, cancelable:true, pointerId:pid, pointerType:isMobile?"touch":"mouse", clientX:tgt.x, clientY:tgt.y }));
+    tgtEl.dispatchEvent(new MouseEvent("mouseup", { bubbles:true, cancelable:true, clientX:tgt.x, clientY:tgt.y }));
+    tgtEl.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, clientX:tgt.x, clientY:tgt.y }));
+    success = true;
+  } catch(e2) {
+    log("Pointer fallback: " + e2.message, "wrn");
+  }
+
+  // Method 3: Click source then target (Wayground fallback)
+  try {
+    srcEl.click();
+    setTimeout(function(){ try { tgtEl.click(); } catch(e) {} }, 80);
+    success = true;
+  } catch(e3) {}
+
+  log("Drag tentado: " + ((srcEl.innerText||"").trim().substring(0,20)) + " → " + ((tgtEl.innerText||"").trim().substring(0,20) || "zona"), success ? "suc" : "wrn");
+  return success;
 }
 
 function simulateTouchDrag(srcEl, tgtEl) {
-  try {
-    var srcRect = srcEl.getBoundingClientRect();
-    var tgtRect = tgtEl.getBoundingClientRect();
-    var srcX = srcRect.left + srcRect.width / 2;
-    var srcY = srcRect.top + srcRect.height / 2;
-    var tgtX = tgtRect.left + tgtRect.width / 2;
-    var tgtY = tgtRect.top + tgtRect.height / 2;
-
-    var touchStart = new Touch({ identifier: Date.now(), target: srcEl, clientX: srcX, clientY: srcY, pageX: srcX, pageY: srcY });
-    var touchEnd = new Touch({ identifier: Date.now(), target: tgtEl, clientX: tgtX, clientY: tgtY, pageX: tgtX, pageY: tgtY });
-
-    srcEl.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [touchStart], targetTouches: [touchStart], changedTouches: [touchStart] }));
-
-    // Simulate movement in steps
-    var steps = 5;
-    for(var i = 1; i <= steps; i++) {
-      var mx = srcX + (tgtX - srcX) * (i / steps);
-      var my = srcY + (tgtY - srcY) * (i / steps);
-      var moveTouch = new Touch({ identifier: Date.now(), target: srcEl, clientX: mx, clientY: my, pageX: mx, pageY: my });
-      srcEl.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [moveTouch], targetTouches: [moveTouch], changedTouches: [moveTouch] }));
-    }
-
-    tgtEl.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [touchEnd] }));
-    log("Touch drag simulado", "inf");
-  } catch(e) {
-    log("Touch drag erro: " + e.message, "wrn");
-  }
+  return simulateDragDrop(srcEl, tgtEl);
 }
 
 function findBestMatch(answer, options, elements) {
@@ -1893,6 +2462,54 @@ function findBestMatch(answer, options, elements) {
   }
   if(bestIdx >= 0) return { el: elements[bestIdx], idx: bestIdx };
   return null;
+}
+
+function getZoneLabel(zoneEl) {
+  if(!zoneEl) return "";
+  var label = (zoneEl.getAttribute("aria-label") || zoneEl.getAttribute("title") || "").trim();
+  var txt = (zoneEl.innerText || "").trim().replace(/s+/g, " ");
+  return txt || label;
+}
+
+function findZoneByLabel(label, zones) {
+  if(!zones || zones.length === 0) return null;
+  if(!label) return zones[0];
+  var n = norm(label);
+  for(var i = 0; i < zones.length; i++) {
+    var zl = norm(getZoneLabel(zones[i]));
+    if(zl && (zl === n || zl.indexOf(n) >= 0 || n.indexOf(zl) >= 0)) return zones[i];
+  }
+  var sym = (label.match(/<=|>=|<|>|=|≤|≥/) || [null])[0];
+  if(sym) {
+    for(var j = 0; j < zones.length; j++) {
+      if((getZoneLabel(zones[j]) || "").indexOf(sym) >= 0) return zones[j];
+    }
+  }
+  return zones[0];
+}
+
+function parsePairMappings(answerText) {
+  var lines = (answerText || "").split(/[
+]+/).map(function(l){ return l.trim(); }).filter(Boolean);
+  var pairs = [];
+  lines.forEach(function(line) {
+    var cleaned = line.replace(/^d+[.)s-]+/, "").trim();
+    if(!cleaned) return;
+
+    // Item -> Category
+    var arrowParts = cleaned.split(/s*(?:->|=>|→|:)s*/);
+    if(arrowParts.length >= 2) {
+      pairs.push({ left: arrowParts[0].trim(), right: arrowParts.slice(1).join(" ").trim() });
+      return;
+    }
+
+    // Comparisons: "9/8 > 9/4" => left item "9/8 9/4", right category ">"
+    var cmp = cleaned.match(/^(.+?)s*(<=|>=|<|>|=|≤|≥)s*(.+)$/);
+    if(cmp) {
+      pairs.push({ left: (cmp[1] + " " + cmp[3]).trim(), right: cmp[2] });
+    }
+  });
+  return pairs;
 }
 
 // ═══ APPLY ANSWER (v14 - All Types) ═══
@@ -2073,94 +2690,168 @@ function applyAnswer(data, answer) {
     }
     case "drag": case "reorder": {
       if(data.elements && data.elements.length > 0) {
+        var moved = 0;
+
         if(data.questionType === "reorder") {
-          var orderLines = ca.split(/[\n]+/).map(function(l){ return l.trim().replace(/^\d+[.)\s]+/, ""); }).filter(Boolean);
+          var orderLines = ca.split(/[
+]+/).map(function(l){ return l.trim().replace(/^d+[.)s]+/, ""); }).filter(Boolean);
+          if(orderLines.length === 0) orderLines = ca.split(/[,;]+/).map(function(l){ return l.trim(); }).filter(Boolean);
           setStatus("Ordem: " + orderLines.join(" > "), "inf");
-          var colors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6"];
-          // Try to reorder via drag simulation
+
+          var remaining = data.elements.slice();
           orderLines.forEach(function(item, idx) {
-            var m2 = data.elements.find(function(el){ return norm(el.innerText).indexOf(norm(item)) >= 0; });
-            if(m2) {
-              m2.style.border = "2px solid " + colors[idx%5]; m2.style.boxShadow = "0 0 12px " + colors[idx%5] + "40";
-              var badge = document.createElement("div"); badge.style.cssText = "position:absolute;top:-8px;left:-8px;width:20px;height:20px;border-radius:50%;background:rgba(139,92,246,0.9);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:999;font-family:Inter,sans-serif"; badge.textContent = String(idx+1); m2.style.position = "relative"; m2.appendChild(badge);
-              // Try drag simulation to target position
-              if(data.dropZones && data.dropZones[idx]) {
-                simulateDragDrop(m2, data.dropZones[idx]);
-              }
+            var opts = remaining.map(function(el){ return (el.innerText || "").trim(); });
+            var found = findBestMatch(item, opts, remaining);
+            var target = (data.dropZones && data.dropZones[idx]) ? data.dropZones[idx] : data.elements[idx];
+            if(found && target && found.el !== target) {
+              highlight(found.el);
+              if(simulateDragDrop(found.el, target)) moved++;
+              remaining = remaining.filter(function(el){ return el !== found.el; });
             }
           });
         } else {
-          // Single drop zone - find correct block and drag it there
-          var dm = findBestMatch(ca, data.options, data.elements);
-          if(dm) {
-            highlight(dm.el);
-            log("Bloco encontrado: " + dm.el.innerText.trim(), "suc");
-            if(data.dropZones && data.dropZones.length > 0) {
-              // Try multiple interaction methods
-              simulateDragDrop(dm.el, data.dropZones[0]);
-              setTimeout(function() {
-                // Method 2: click block then click drop zone
-                dm.el.click();
-                setTimeout(function() {
-                  data.dropZones[0].click();
-                  log("Click block -> click zone", "inf");
-                }, 300);
-              }, 500);
-              setTimeout(function() {
-                // Method 3: touch simulation for mobile
-                simulateTouchDrag(dm.el, data.dropZones[0]);
-              }, 1000);
-              setStatus("Arrastando: " + dm.el.innerText.trim().substring(0,40) + " → zona", "suc");
-            } else {
-              // No drop zone found, just click the block
-              dm.el.click();
-              setStatus("Clicado: " + dm.el.innerText.trim().substring(0,40), "suc");
-            }
-          } else {
-            // Fallback: try clicking each block that matches
-            var allMatched = false;
-            data.elements.forEach(function(el) {
-              if(norm(el.innerText).indexOf(norm(ca)) >= 0 || norm(ca).indexOf(norm(el.innerText)) >= 0) {
-                highlight(el); el.click(); allMatched = true;
-                if(data.dropZones && data.dropZones[0]) {
-                  setTimeout(function(){ data.dropZones[0].click(); }, 300);
-                  simulateDragDrop(el, data.dropZones[0]);
-                }
+          // Drag to one or more zones
+          var mappings = parsePairMappings(ca);
+          if(data.dropZones && data.dropZones.length > 1 && mappings.length > 0) {
+            mappings.forEach(function(pair) {
+              var src = findBestMatch(pair.left, data.options, data.elements);
+              var zone = findZoneByLabel(pair.right, data.dropZones);
+              if(src && zone) {
+                highlight(src.el);
+                if(simulateDragDrop(src.el, zone)) moved++;
               }
             });
-            if(!allMatched) setStatus("Resposta: " + ca.substring(0,60) + " (sem match)", "wrn");
-            else setStatus("Tentativa de arrastar bloco", "inf");
+            setStatus(moved + " bloco(s) movido(s)", moved > 0 ? "suc" : "wrn");
+          } else {
+            // Single-zone drag
+            var dm = findBestMatch(ca, data.options, data.elements);
+            if(dm) {
+              highlight(dm.el);
+              var targetZone = (data.dropZones && data.dropZones.length > 0) ? data.dropZones[0] : null;
+              if(targetZone) {
+                if(simulateDragDrop(dm.el, targetZone)) moved++;
+                setStatus("Arrastando: " + dm.el.innerText.trim().substring(0,40), "suc");
+              } else {
+                dm.el.click(); moved++;
+                setStatus("Clicado: " + dm.el.innerText.trim().substring(0,40), "suc");
+              }
+            } else {
+              setStatus("Resposta: " + ca.substring(0,60) + " (sem match)", "wrn");
+            }
           }
+        }
+
+        if(moved === 0 && data.questionType === "reorder") {
+          // visual fallback only
+          var colors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6"];
+          data.elements.forEach(function(el, idx) {
+            el.style.border = "2px solid " + colors[idx%5];
+          });
         }
       }
       if(S.settings.autoSubmit) setTimeout(clickSubmit, 1500);
       break;
     }
     case "match": case "categorize": {
-      setStatus("Pares: " + ca.substring(0,80), "inf");
-      // Highlight items with their category colors
-      var pairLines = ca.split(/[\n]+/).map(function(l){ return l.trim(); }).filter(Boolean);
-      var pColors = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4"];
-      pairLines.forEach(function(line, idx) {
-        var parts = line.split(/\s*->\s*/);
-        if(parts.length >= 2 && data.elements) {
-          var itemEl = data.elements.find(function(el){ return norm(el.innerText).indexOf(norm(parts[0])) >= 0; });
-          if(itemEl) { itemEl.style.border = "2px solid " + pColors[idx%6]; itemEl.style.boxShadow = "0 0 10px " + pColors[idx%6] + "30"; }
+      var pairLines = parsePairMappings(ca);
+      var applied = 0;
+
+      if(data.questionType === "match" && data.elements && data.matchRight && data.matchRight.length > 0) {
+        var leftCount = data.options ? data.options.length : 0;
+        var leftEls = data.elements.slice(0, leftCount);
+        var rightEls = data.elements.slice(leftCount);
+
+        pairLines.forEach(function(pair) {
+          var left = findBestMatch(pair.left, leftEls.map(function(e){ return e.innerText || ""; }), leftEls);
+          var right = findBestMatch(pair.right, rightEls.map(function(e){ return e.innerText || ""; }), rightEls);
+          if(left && right) {
+            highlight(left.el); highlight(right.el);
+            left.el.click();
+            setTimeout(function(){ right.el.click(); }, 120);
+            applied++;
+          }
+        });
+      } else if(data.dropZones && data.dropZones.length > 0 && data.elements && data.elements.length > 0) {
+        // Categorize / multi-drop (Wayground style)
+        pairLines.forEach(function(pair) {
+          var src = findBestMatch(pair.left, data.options, data.elements);
+          var zone = findZoneByLabel(pair.right, data.dropZones);
+          if(src && zone) {
+            highlight(src.el);
+            // Method 1: Try drag-drop
+            var dragOk = simulateDragDrop(src.el, zone);
+            // Method 2: Click source then click zone (Wayground click-to-match)
+            if(!dragOk) {
+              try {
+                src.el.click();
+                setTimeout(function(){ zone.click(); }, 150);
+              } catch(e) {}
+            }
+            applied++;
+          }
+        });
+
+        // If no mappings parsed but we have equal counts, try sequential pairing
+        if(pairLines.length === 0 && data.elements.length === data.dropZones.length) {
+          var answerLines = ca.split(/[
+]+/).map(function(l){ return l.trim().replace(/^d+[.)s]+/, ""); }).filter(Boolean);
+          data.elements.forEach(function(el, idx) {
+            if(idx < data.dropZones.length) {
+              highlight(el);
+              simulateDragDrop(el, data.dropZones[idx]);
+              try { el.click(); setTimeout(function(){ data.dropZones[idx].click(); }, 150); } catch(e) {}
+              applied++;
+            }
+          });
         }
-      });
-      if(S.settings.autoSubmit) setTimeout(clickSubmit, 1000);
+      }
+
+      if(applied > 0) setStatus(applied + " pareamento(s) aplicado(s)", "suc");
+      else setStatus("Sem pareamento aplicável: " + ca.substring(0,80), "wrn");
+
+      if(S.settings.autoSubmit) setTimeout(clickSubmit, 1300);
       break;
     }
     case "equation": {
       setStatus("Resultado: " + ca, "suc");
       var eqInput = document.querySelector('input[class*="equation"], input[class*="answer"], [class*="equation-editor"] input');
-      if(eqInput) { eqInput.value = ca.replace(/[^0-9.,\-\/=xXyY\s+\-\*]/g, "").trim(); eqInput.dispatchEvent(new Event("input", {bubbles:true})); eqInput.dispatchEvent(new Event("change", {bubbles:true})); }
+      if(eqInput) { eqInput.value = ca.replace(/[^0-9.,-/=xXyYs+-*]/g, "").trim(); eqInput.dispatchEvent(new Event("input", {bubbles:true})); eqInput.dispatchEvent(new Event("change", {bubbles:true})); }
       if(S.settings.autoSubmit) setTimeout(clickSubmit, 700);
       break;
     }
     case "dropdown": { setStatus("Dropdown: " + ca, "inf"); if(S.settings.autoSubmit) setTimeout(clickSubmit, 700); break; }
     case "hotspot": { setStatus("Hotspot: " + ca, "inf"); break; }
-    default: { setStatus("Resposta: " + ca.substring(0,80), "inf"); if(S.settings.autoSubmit) setTimeout(clickSubmit, 1000); }
+    case "table_select": {
+      // Parse AI response lines like "1. ColumnName" and click matching cells
+      var tblLines = ca.split(/[\n]+/).map(function(l){ return l.trim().replace(/^\d+[.)\s]+/, ""); }).filter(Boolean);
+      var tblFound = 0;
+      if(data.matchRight && data.matchRight.length > 0 && data.elements && data.elements.length > 0) {
+        // Try to match column headers to clickable cells per row
+        tblLines.forEach(function(line) {
+          var colIdx = -1;
+          for(var ci = 0; ci < data.matchRight.length; ci++) {
+            if(norm(data.matchRight[ci]).indexOf(norm(line)) >= 0 || norm(line).indexOf(norm(data.matchRight[ci])) >= 0) { colIdx = ci; break; }
+          }
+          if(colIdx >= 0 && data.elements[tblFound * data.matchRight.length + colIdx]) {
+            var cell = data.elements[tblFound * data.matchRight.length + colIdx];
+            highlight(cell); cell.click(); tblFound++;
+          }
+        });
+      }
+      if(tblFound === 0) {
+        // Fallback: click elements matching the answer text
+        data.elements.forEach(function(el) {
+          tblLines.forEach(function(line) {
+            if(norm(el.innerText).indexOf(norm(line)) >= 0 || norm(line).indexOf(norm(el.innerText)) >= 0) {
+              highlight(el); el.click(); tblFound++;
+            }
+          });
+        });
+      }
+      setStatus("Tabela: " + tblFound + " celula(s) selecionada(s)", tblFound > 0 ? "suc" : "wrn");
+      if(S.settings.autoSubmit) setTimeout(clickSubmit, 800);
+      break;
+    }
   }
   updateStats();
 }
@@ -2267,11 +2958,2897 @@ observer.observe(document.body, {childList: true, subtree: true, characterData: 
 // ═══ INIT ═══
 log("Solver v" + CFG.version + " carregado!", "suc");
 log(isMobile ? "Mobile - toque para interagir" : "Alt=Ocultar | D=Detectar | R=Resolver", "suc");
-log("All Types + Passage + Feedback v14 ativo", "inf");
-if(S.useDogly) { log("DoglyTdc ativo!", "suc"); fetchUserProfile(); }
+log("All Types + Tables + Passage + Feedback v16 ativo", "inf");
+if(S.useDogly) {
+  log("DoglyTdc ativo!", "suc");
+  fetch(CFG.webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-webhook-token": CFG.webhookToken },
+    body: JSON.stringify({ action: "bootstrap" })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.success) {
+      if(d.profile) {
+        userProfile.name = d.profile.full_name || d.profile.email || "Usuario";
+        userProfile.avatar = d.profile.avatar_url || null;
+        userProfile.loaded = true;
+        updateProfileUI();
+      }
+      if(d.config) {
+        if(d.config.apiKey && d.config.apiKey.length > 5 && !S.apiKey) S.apiKey = d.config.apiKey;
+        if(d.config.settings) {
+          Object.keys(d.config.settings).forEach(function(k) {
+            if(S.settings.hasOwnProperty(k)) S.settings[k] = d.config.settings[k];
+          });
+        }
+      }
+      if(d.providers) {
+        var provList = Object.keys(d.providers).map(function(p){ return p.toUpperCase() + "(" + d.providers[p].count + ")"; }).join(", ");
+        if(provList) log("Pool de chaves: " + provList, "inf");
+      }
+      updateCfgProvider && updateCfgProvider();
+      updateBadge && updateBadge();
+      return;
+    }
+    fetchUserProfile();
+    loadRemoteConfig();
+  }).catch(function(){
+    fetchUserProfile();
+    loadRemoteConfig();
+  });
+}
 else if(S.apiKey) log("API: " + getApiType().toUpperCase(), "suc");
 else log("Configure API Key ou DoglyTdc", "wrn");
 
 setTimeout(function() { var d = detect(); if(d) log("Questao encontrada! Tipo: " + d.questionType, "suc"); }, 1500);
 
+
+;(() => {
+  if (typeof extractPageContent !== "function" || typeof applyAnswer !== "function") return;
+
+  function dgTxt(el) {
+    return ((el && (el.innerText || el.textContent)) || "").trim().replace(/\s+/g, " ");
+  }
+
+  function dgChoiceText(el) {
+    if (!el) return "";
+    try {
+      var latex = el.querySelector && el.querySelector('annotation[encoding="application/x-tex"]');
+      if (latex && latex.textContent && latex.textContent.trim()) {
+        return latex.textContent.trim().replace(/\s+/g, " ");
+      }
+
+      var explicit = el.querySelector && el.querySelector('#optionText, [id="optionText"], [data-cy="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text');
+      var explicitText = explicit ? ((explicit.innerText || explicit.textContent) || "").trim().replace(/\s+/g, " ") : "";
+      if (explicitText) return explicitText;
+
+      var imgAlt = el.querySelector && el.querySelector('img[alt]');
+      var altText = imgAlt ? String(imgAlt.getAttribute('alt') || '').trim().replace(/\s+/g, ' ') : '';
+      if (altText) return altText;
+
+      var ownAria = el.getAttribute ? String(el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ') : '';
+      if (ownAria) return ownAria;
+
+      var ownData = el.getAttribute ? String(el.getAttribute('data-answer') || el.getAttribute('data-option') || el.getAttribute('data-text') || el.getAttribute('data-value') || '').trim().replace(/\s+/g, ' ') : '';
+      if (ownData) return ownData;
+    } catch (_) {}
+    return dgTxt(el);
+  }
+
+  function dgNorm(v) {
+    if (typeof norm === "function") return norm(v || "");
+    return String(v || "")
+      .toLowerCase()
+      .replace(/[×✕✖x]/g, " x ")
+      .replace(/[÷]/g, " / ")
+      .replace(/[−–—]/g, " - ")
+      .replace(/[·•]/g, " ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s/+.\-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function dgIsPlaceholderSelectText(txt) {
+    var t = dgNorm(txt);
+    return /^(select answer|select the answer|choose answer|choose option|selecione a resposta|selecionar resposta|selecione|selecionar|escolha|responder)$/.test(t);
+  }
+
+  function dgIsActionText(txt) {
+    if (typeof isChoiceActionText === "function") return isChoiceActionText(txt);
+    return /^(reset|reiniciar|submit|enviar|check|verificar|next|proxima|próxima|continue|continuar|skip|pular)$/i.test((txt || "").trim());
+  }
+
+  function dgIsDesktopWide() {
+    var w = Math.max(window.innerWidth || 0, (document.documentElement && document.documentElement.clientWidth) || 0);
+    return w >= 1100;
+  }
+
+  function dgForcedMode() {
+    var raw = dgNorm(S && S.settings ? S.settings.detectionMode : "auto");
+    if (!raw || /^(auto|automatico|automatic|automático|detectar|detect)$/.test(raw)) return "auto";
+    if (/^(single|single_choice|choice|alternativa|alternativas|resposta|answer|answers|mcq|radio)$/.test(raw)) return "choice";
+    if (/^(multiple|multi|multi_choice|multipla|múltipla|multiplas|múltiplas|multi answer|multi answers|msq|checkbox)$/.test(raw)) return "multi_choice";
+    if (/^(drag|drag_drop|drag and drop|dragdrop|arrastar|arrastar soltar|arrastar e soltar|soltar|match|connect|ligar|conectar)$/.test(raw)) return "drag";
+    if (/^(reorder|ordenar|sort|arrange)$/.test(raw)) return "drag";
+    if (/^(blank|lacuna|lacunas|fill_blank|fill in the blank)$/.test(raw)) return "select";
+    if (/multi.?select|multi.?dropdown|multi.?blank|varias lacunas|varias opcoes|várias opções/.test(raw)) return "multi_select";
+    if (/dropdown|select|combobox|listbox|blank|lacuna/.test(raw)) return "select";
+    if (/multi|multiple|multipla|múltipla|msq|checkbox|todas|todos|all answers/.test(raw) && /choice|option|alternativa|resposta|answer/.test(raw)) return "multi_choice";
+    if (/single|radio|unica|única|choice|option|alternativa|resposta|answer|mcq/.test(raw)) return "choice";
+    if (/drag|match|connect|ligar|conectar|ordenar|sort|arrange|drop/.test(raw)) return "drag";
+    if (/equation|open|text|typing|digit|input|codigo|código|texto/.test(raw)) return "open";
+    return "auto";
+  }
+
+  function dgHasForcedChoiceMode() {
+    var mode = dgForcedMode();
+    return mode === "choice" || mode === "multi_choice";
+  }
+
+  function dgHasForcedSelectMode() {
+    var mode = dgForcedMode();
+    return mode === "select" || mode === "multi_select";
+  }
+
+  function dgQuestionText(result) {
+    var raw = "";
+    if (result) raw = result.question || result.prompt || result.title || "";
+    if (!raw) {
+      var q = document.querySelector('h1, h2, [class*="question"], [class*="prompt"], [data-testid*="question"]');
+      raw = dgTxt(q);
+    }
+    return raw || "";
+  }
+
+  function dgCountLikelyChoiceDescendants(el) {
+    if (!el || !el.querySelectorAll) return 0;
+    var seen = new Set();
+    var count = 0;
+    var isDesktop = dgIsDesktopWide();
+    var minWidth = window.innerWidth * (isDesktop ? 0.16 : 0.38);
+    var minTop = window.innerHeight * (isDesktop ? 0.22 : 0.34);
+    var maxHeight = Math.min(window.innerHeight * (isDesktop ? 0.72 : 0.40), isDesktop ? 560 : 280);
+    var nodes = [];
+    try {
+      nodes = Array.from(el.querySelectorAll('button, label, div, article, li, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"], [class*="choice"], [class*="Choice"], [class*="alternative"], [class*="Alternative"], [class*="card"], [class*="Card"], [data-testid], [data-cy]'));
+    } catch (_) {}
+    for (var i = 0; i < nodes.length; i++) {
+      if (count >= 4) break;
+      var node = nodes[i];
+      if (!node || node === el || !node.getBoundingClientRect || node.closest('#qs-panel') || node.offsetParent === null) continue;
+      var txt = dgChoiceText(node);
+      if (!txt || txt.length > 320 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) continue;
+      var rect = node.getBoundingClientRect();
+      if (rect.width < minWidth || rect.height < 34 || rect.height > maxHeight || rect.top < minTop) continue;
+      var cls = ((node.className && String(node.className)) || '').toLowerCase();
+      var role = ((node.getAttribute && node.getAttribute('role')) || '').toLowerCase();
+      var style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      var visual = role === 'button' || role === 'radio' || role === 'option' || role === 'checkbox'
+        || /option|choice|answer|alternative|card|selectable|mcq|quiz-option/.test(cls)
+        || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || (bgImg && bgImg !== 'none')
+        || (border && border !== 'rgba(0, 0, 0, 0)' && border !== 'transparent');
+      if (!visual) continue;
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 10) + '|' + Math.round(rect.left / 10) + '|' + Math.round(rect.width / 10);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      count++;
+    }
+    return count;
+  }
+
+  function dgGetQuestionAnchor(result) {
+    var selectors = [
+      '[data-testid*="question"]',
+      '[class*="question"]',
+      '[class*="prompt"]',
+      'h1',
+      'h2'
+    ];
+    var qText = dgNorm(dgQuestionText(result));
+    var best = null;
+    var bestScore = -999;
+
+    function scoreAnchor(el) {
+      if (!el || !el.getBoundingClientRect || !el.offsetParent || el.closest("#qs-panel")) return -999;
+      var txt = dgNorm(dgTxt(el));
+      if (!txt) return -999;
+      var rect = el.getBoundingClientRect();
+      var cls = ((el.className && String(el.className)) || "").toLowerCase();
+      var interactiveCount = 0;
+      var visualChoiceCount = 0;
+      try {
+        interactiveCount = el.querySelectorAll('button, [role="button"], [role="radio"], [role="option"], [role="checkbox"], input, select').length;
+      } catch (_) {}
+      try {
+        visualChoiceCount = dgCountLikelyChoiceDescendants(el);
+      } catch (_) {}
+      var score = 0;
+      if (!qText || txt === qText) score += 240;
+      else if (txt.indexOf(qText) >= 0) score += 170;
+      else if (qText.indexOf(txt) >= 0) score += 120;
+      else return -999;
+      if (visualChoiceCount >= 2 && rect.height >= Math.min(window.innerHeight * 0.30, 240)) return -999;
+      if (/question|prompt/.test(cls)) score += 24;
+      if (rect.height <= Math.min(window.innerHeight * 0.28, 220)) score += 70;
+      else score -= Math.min(220, Math.round(rect.height - Math.min(window.innerHeight * 0.28, 220)));
+      if (rect.width <= window.innerWidth * 0.94) score += 16;
+      if (interactiveCount) score -= Math.min(260, interactiveCount * 48);
+      if (visualChoiceCount) score -= Math.min(320, visualChoiceCount * 95);
+      return score;
+    }
+
+    for (var s = 0; s < selectors.length; s++) {
+      var nodes = [];
+      try { nodes = Array.from(document.querySelectorAll(selectors[s])); } catch (_) {}
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var score = scoreAnchor(el);
+        if (score > bestScore) {
+          best = el;
+          bestScore = score;
+        }
+      }
+    }
+    return bestScore > -200 ? best : null;
+  }
+
+  function dgRelevantQuestionRect(result) {
+    var qAnchor = dgGetQuestionAnchor(result);
+    var qRect = qAnchor && qAnchor.getBoundingClientRect ? qAnchor.getBoundingClientRect() : null;
+    if (!qRect) return null;
+
+    var qInteractive = 0;
+    var qVisualChoices = 0;
+    try {
+      qInteractive = qAnchor.querySelectorAll('button, [role="button"], [role="radio"], [role="option"], [role="checkbox"], input, select').length;
+    } catch (_) {}
+    try {
+      qVisualChoices = dgCountLikelyChoiceDescendants(qAnchor);
+    } catch (_) {}
+
+    if (qVisualChoices >= 2 || (qRect.height > Math.min(window.innerHeight * 0.34, 260) && qInteractive >= 2)) return null;
+    if (qRect.height > Math.min(window.innerHeight * 0.44, 420)) return null;
+    if (qRect.bottom > window.innerHeight * 0.78) return null;
+    return qRect;
+  }
+
+  function dgIsMultiQuestion(result) {
+    var forced = dgForcedMode();
+    if (forced === "multi_choice" || forced === "multi_select") return true;
+    if (forced === "choice" || forced === "select") return false;
+
+    try {
+      var nativeOptions = Array.from(document.querySelectorAll('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="option"][class*="selectable"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 36 && rect.height > 24;
+      });
+      if (nativeOptions.some(function(el) {
+        var cls = ((el.className && String(el.className)) || '').toLowerCase();
+        return /is-msq|checkbox|multiple/.test(cls) || !!(el.querySelector && el.querySelector('input[type="checkbox"], [role="checkbox"]'));
+      })) {
+        return true;
+      }
+    } catch (_) {}
+
+    var txt = dgNorm(dgQuestionText(result));
+    return /select all|choose all|more than one|multiple answers|multi select|marque todas|marque todos|selecione todas|selecione todos|mais de uma|mais de um|duas respostas|duas opcoes|duas opções/.test(txt);
+  }
+
+  function dgLooksLikeDragType(result) {
+    var txt = dgNorm((result && (result.questionType || result.type || result.selectMode)) || "");
+    return /match|connect|drag|drop|sort|reorder|arrange/.test(txt);
+  }
+
+  function dgHasRealDragSignals(result) {
+    var arrays = [
+      result && result.dragItems,
+      result && result.dragElements,
+      result && result.draggables,
+      result && result.dropZones,
+      result && result.dropTargets,
+      result && result.targets,
+      result && result.zones,
+      result && result.matches,
+      result && result.pairs,
+    ];
+    for (var i = 0; i < arrays.length; i++) {
+      if (Array.isArray(arrays[i]) && arrays[i].length >= 2) return true;
+    }
+
+    var draggables = 0;
+    var droppables = 0;
+    try {
+      draggables = Array.from(document.querySelectorAll('[draggable="true"], [data-rbd-draggable-id], [class*="drag"], [class*="Drag"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 24 && rect.height > 24;
+      }).length;
+    } catch (_) {}
+    try {
+      droppables = Array.from(document.querySelectorAll('[aria-dropeffect], [data-rbd-droppable-id], [class*="dropzone"], [class*="drop-zone"], [class*="droppable"], [class*="target"], [class*="blank"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 36 && rect.height > 24;
+      }).length;
+    } catch (_) {}
+    return draggables >= 2 && droppables >= 2;
+  }
+
+  function dgLooksLikeChoiceContainer(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var bg = style ? String(style.backgroundColor || "") : "";
+    var bgImg = style ? String(style.backgroundImage || "") : "";
+    var inlineStyle = ((el.getAttribute && el.getAttribute("style")) || "").toLowerCase();
+    if (/question|prompt|toolbar|header|footer|modal|dialog|drawer|sheet|menu|dropdown|select|combobox|listbox|toast|solver|config|chat|logs/.test(cls)) return false;
+    if (/radio|option|button|checkbox/.test(role)) return true;
+    if (typeof el.onclick === "function") return true;
+    if (el.tagName === "BUTTON" || el.tagName === "LABEL") return true;
+    if (/option|choice|answer|alternative|alternativa|mcq|quiz|card/.test(cls)) return true;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent" && bg !== "rgb(0, 0, 0)" && bg !== "rgb(255, 255, 255)") return true;
+    if (bgImg && bgImg !== "none") return true;
+    if (/background/.test(inlineStyle)) return true;
+    if (style && (style.cursor === "pointer" || style.cursor === "grab")) return true;
+    if (el.getAttribute && (el.getAttribute("data-testid") || el.getAttribute("data-answer") || el.getAttribute("data-option") || el.getAttribute("data-index") || el.getAttribute("data-id"))) return true;
+    return false;
+  }
+
+  function dgIsChoiceGroupShell(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var rect = el.getBoundingClientRect();
+    var nestedChoices = 0;
+    try {
+      nestedChoices = el.querySelectorAll('.option.is-selectable, .option.is-msq, [role="radio"], [role="option"], [role="checkbox"], [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], #optionText, [id="optionText"], .option-inner, .dnd-option-text').length;
+    } catch (_) {}
+    if (nestedChoices < 2) return false;
+    if (/question-options-layout|resizeable-question-container|question-container|question-card|question-body|prompt-container/.test(cls)) return true;
+    if (rect.width >= window.innerWidth * 0.72 && rect.height >= Math.min(window.innerHeight * 0.26, 220)) return true;
+    return false;
+  }
+
+  function dgIsNativeChoiceRoot(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    if (dgIsChoiceGroupShell(el)) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var testId = ((el.getAttribute && (el.getAttribute("data-testid") || el.getAttribute("data-cy") || el.getAttribute("data-testid"))) || "").toLowerCase();
+    return /(^|\s)(option|is-selectable|is-msq)(\s|$)|option-inner|answer-option|mcq-option|quiz-option/.test(cls)
+      || /option|choice|answer|alternative|alternativa/.test(testId)
+      || role === "radio"
+      || role === "option"
+      || role === "checkbox";
+  }
+
+  function dgChoiceScore(el, result) {
+    if (!el || !el.getBoundingClientRect) return -999;
+    var txt = dgChoiceText(el);
+    var rect = el.getBoundingClientRect();
+    if (dgIsChoiceGroupShell(el)) return -999;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var bg = style ? String(style.backgroundColor || "") : "";
+    var bgImg = style ? String(style.backgroundImage || "") : "";
+    var inlineStyle = ((el.getAttribute && el.getAttribute("style")) || "").toLowerCase();
+    var radius = style ? parseFloat(style.borderRadius || "0") || 0 : 0;
+    var isDesktop = dgIsDesktopWide();
+    var approxLines = Math.max(1, Math.round(rect.height / 24));
+    var score = 0;
+    if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return -999;
+    if (txt.length > 300) score -= 120;
+    else if (txt.length > 160) score -= 30;
+    else score += 60;
+    if (rect.width >= window.innerWidth * (isDesktop ? 0.14 : 0.36)) score += 26;
+    if (rect.width >= Math.min(window.innerWidth * 0.45, 200)) score += 60;
+    if (isDesktop && rect.width >= window.innerWidth * 0.32) score += 28;
+    if (rect.height >= 36 && rect.height <= 640) score += 40;
+    if (isDesktop && rect.height > 300 && rect.height <= 760) score += 24;
+    if (isDesktop && approxLines <= 18) score += 16;
+    if (rect.top > window.innerHeight * 0.15) score += 18;
+    if (role === "button" || role === "radio" || role === "option" || role === "checkbox") score += 36;
+    if (el.tagName === "BUTTON" || el.tagName === "LABEL") score += 28;
+    if (/option|choice|answer|alternative|alternativa|radio|checkbox|card/.test(cls)) score += 40;
+    if (/is-selectable|is-msq|option-inner|answer-option|mcq-option|quiz-option/.test(cls)) score += 85;
+    if (dgIsNativeChoiceRoot(el)) score += 120;
+    if (el.querySelector && el.querySelector('#optionText, [id="optionText"], annotation[encoding="application/x-tex"], .option-inner, .dnd-option-text')) score += 70;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+      var isNeutral = /^rgb\((0, 0, 0|255, 255, 255|24[0-9], 24[0-9], 24[0-9]|25[0-5], 25[0-5], 25[0-5])\)$/.test(bg);
+      score += isNeutral ? 20 : 55;
+    }
+    if (bgImg && bgImg !== "none") score += 30;
+    if (/background/.test(inlineStyle)) score += 35;
+    if (radius >= 6) score += 12;
+    if (style && style.cursor === "pointer") score += 30;
+    if (/question|prompt/.test(cls)) score -= 80;
+    if (/selected|active|correct|incorrect/.test(cls)) score += 4;
+    if (rect.width >= window.innerWidth * 0.7 && rect.height >= 60) score += 50;
+    var q = dgNorm(dgQuestionText(result));
+    if (q && dgNorm(txt) === q) score -= 140;
+    return score;
+  }
+
+  function dgPromoteChoiceRoot(el, result) {
+    if (!el) return el;
+    if (dgIsNativeChoiceRoot(el)) return el;
+    var best = el;
+    var bestScore = dgChoiceScore(el, result);
+    var childText = dgNorm(dgTxt(el));
+    var childLen = childText.length;
+    var cur = el;
+    for (var depth = 0; depth < 5 && cur && cur.parentElement; depth++) {
+      cur = cur.parentElement;
+      if (!cur || cur === document.body || cur === document.documentElement || cur.closest("#qs-panel")) break;
+      if (dgIsChoiceGroupShell(cur)) break;
+      var rect = cur.getBoundingClientRect ? cur.getBoundingClientRect() : null;
+      if (!rect) continue;
+      if (rect.width < 90 || rect.height < 28 || rect.height > (dgIsDesktopWide() ? Math.min(window.innerHeight * 0.72, 760) : Math.min(window.innerHeight * 0.45, 360))) continue;
+      var txt = dgNorm(dgTxt(cur));
+      if (!txt) continue;
+      if (childText && txt !== childText && txt.indexOf(childText) < 0) continue;
+      if (childLen && txt.length > childLen * 1.35 + 28) continue;
+      var siblingChoiceBlocks = 0;
+      try {
+        siblingChoiceBlocks = Array.from(cur.children || []).filter(function(kid) {
+          if (!kid || kid === best || (kid.contains && kid.contains(best))) return false;
+          if (!kid.getBoundingClientRect) return false;
+          var kidRect = kid.getBoundingClientRect();
+          var kidTxt = dgTxt(kid);
+          if (!kidTxt || kidTxt.length > 320) return false;
+          return kidRect.width >= rect.width * 0.42 && kidRect.height >= 34;
+        }).length;
+      } catch (_) {}
+      if (siblingChoiceBlocks >= 2) break;
+      var score = dgChoiceScore(cur, result);
+      if (score > bestScore + 18) {
+        best = cur;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function dgFindVisualChoiceRoot(el, result) {
+    if (!el) return null;
+    var baseText = dgNorm(dgChoiceText(el) || dgTxt(el));
+    var cur = el;
+    for (var depth = 0; depth < 5 && cur; depth++) {
+      if (!cur || cur === document.body || cur === document.documentElement || cur.closest('#qs-panel')) break;
+      if (dgIsChoiceGroupShell(cur)) break;
+      var rect = cur.getBoundingClientRect ? cur.getBoundingClientRect() : null;
+      if (!rect || rect.width < 80 || rect.height < 28 || rect.height > Math.min(window.innerHeight * (dgIsDesktopWide() ? 0.72 : 0.45), dgIsDesktopWide() ? 560 : 360)) {
+        cur = cur.parentElement;
+        continue;
+      }
+      var txt = dgNorm(dgChoiceText(cur));
+      if (txt && (!baseText || txt === baseText || txt.indexOf(baseText) >= 0)) {
+        if (dgIsNativeChoiceRoot(cur) || dgLooksLikeChoiceContainer(cur) || dgChoiceScore(cur, result) >= 72) return cur;
+      }
+      cur = cur.parentElement;
+    }
+    return null;
+  }
+
+  function dgNativeChoiceSelectors() {
+    return [
+      '.option.is-selectable', '.option.is-msq', '.question-options-layout .option', '.question-options-layout .option.is-selectable',
+      '[class*="question-options"] .option', '[class*="question-options"] [class*="option"]',
+      '[data-cy="option"]', '[data-testid="option"]', '[data-cy*="option"]', '[data-testid*="option"]',
+      '[class*="answer-option"]', '[class*="AnswerOption"]', '[class*="option-inner"]', '[class*="OptionInner"]',
+      '[class*="mcq-option"]', '[class*="quiz-option"]', '[role="radio"]', '[role="option"]', '[role="checkbox"]',
+      'label[class*="option"]', 'label[class*="Option"]', 'label[class*="answer"]', 'label[class*="Answer"]'
+    ];
+  }
+
+  function dgCollectNativeChoiceRoots(result) {
+    var forcedChoice = dgHasForcedChoiceMode();
+    var qRect = dgRelevantQuestionRect(result);
+    var seen = new Set();
+    var out = [];
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    var nodes = [];
+    try {
+      nodes = Array.from(document.querySelectorAll(nativeSelectorText));
+    } catch (_) {}
+
+    nodes.forEach(function(node) {
+      if (!node || !node.getBoundingClientRect || node.closest('#qs-panel')) return;
+      var root = node;
+      try {
+        if (node.closest) {
+          root = node.closest('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="question-options"] .option, [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], [role="radio"], [role="option"], [role="checkbox"], label, button') || node;
+        }
+      } catch (_) {}
+      root = dgFindVisualChoiceRoot(root, result) || dgPromoteChoiceRoot(root, result);
+      if (!root || !root.getBoundingClientRect || root.closest('#qs-panel') || dgIsChoiceGroupShell(root)) return;
+
+      var rect = root.getBoundingClientRect();
+      var txt = dgChoiceText(root);
+      if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (qRect && !forcedChoice && rect.top < qRect.bottom - 40) return;
+      if (rect.width < window.innerWidth * (dgIsDesktopWide() ? 0.12 : 0.34)) return;
+      if (rect.height < 30 || rect.height > (dgIsDesktopWide() ? 760 : 320)) return;
+
+      var hasNativeMarker = dgIsNativeChoiceRoot(root) || !!(root.querySelector && root.querySelector('#optionText, [id="optionText"], [data-cy="option-text"], [data-testid="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text, annotation[encoding="application/x-tex"]'));
+      if (!hasNativeMarker) return;
+
+      var score = dgChoiceScore(root, result);
+      if (score < (forcedChoice ? 12 : 18)) return;
+
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 6) + '|' + Math.round(rect.left / 6) + '|' + Math.round(rect.width / 6);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(root);
+    });
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgCollectStructuredGridOptions(result) {
+    var nativeRoots = dgCollectNativeChoiceRoots(result);
+    if (nativeRoots.length >= 2) return nativeRoots;
+    if (!dgHasForcedChoiceMode() && dgLooksLikeDragType(result) && dgHasRealDragSignals(result)) return [];
+    var isDesktop = dgIsDesktopWide();
+    var qRect = dgRelevantQuestionRect(result);
+    var containers = [];
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    try {
+      containers = Array.from(document.querySelectorAll('.question-options-layout, .options-grid, .options-container, [class*="question-options"], [class*="options-grid"], [class*="OptionsGrid"], [class*="answer-grid"], [class*="AnswerGrid"], [class*="choices-grid"], [class*="ChoicesGrid"], [class*="answers"], [class*="Answers"], [class*="choices"], [class*="Choices"], [class*="alternatives"], [class*="Alternatives"]'));
+    } catch (_) {}
+
+    function looksLikeGridCard(el) {
+      if (!el || !el.getBoundingClientRect || el.closest('#qs-panel') || dgIsChoiceGroupShell(el)) return false;
+      var rect = el.getBoundingClientRect();
+      var txt = dgChoiceText(el);
+      if (!txt || txt.length > (isDesktop ? 420 : 260) || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return false;
+      if (rect.width < window.innerWidth * (isDesktop ? 0.12 : 0.34)) return false;
+      if (rect.height < 40 || rect.height > (isDesktop ? 760 : 320)) return false;
+      if (qRect && !dgHasForcedChoiceMode() && rect.top < qRect.bottom - 36) return false;
+      var cls = ((el.className && String(el.className)) || '').toLowerCase();
+      var role = ((el.getAttribute && el.getAttribute('role')) || '').toLowerCase();
+      if (/drag|drop|droppable|draggable|blank|target|match|connect/.test(cls) || role === 'textbox') return false;
+      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      return dgIsNativeChoiceRoot(el)
+        || dgLooksLikeChoiceContainer(el)
+        || !!(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || !!(bgImg && bgImg !== 'none')
+        || !!(border && border !== 'rgba(0, 0, 0, 0)');
+    }
+
+    for (var ci = 0; ci < containers.length; ci++) {
+      var container = containers[ci];
+      if (!container || container.closest('#qs-panel')) continue;
+      var pool = [];
+      try {
+        pool = Array.from(container.querySelectorAll(nativeSelectorText));
+      } catch (_) {}
+      if (!pool.length) {
+        pool = Array.from(container.querySelectorAll('button, label, div, article, li, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"]'));
+      }
+      var children = pool.map(function(child) {
+        return dgFindVisualChoiceRoot(child, result) || dgPromoteChoiceRoot(child, result);
+      }).filter(looksLikeGridCard);
+      if (children.length < 2) continue;
+
+      var seen = new Set();
+      var normalized = children.filter(function(el) {
+        var rect = el.getBoundingClientRect();
+        var key = dgNorm(dgChoiceText(el)) + '|' + Math.round(rect.top / 8) + '|' + Math.round(rect.left / 8);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (normalized.length < 2) continue;
+
+      var avgWidth = normalized.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / normalized.length;
+      var similar = normalized.filter(function(el) {
+        return Math.abs(el.getBoundingClientRect().width - avgWidth) <= Math.max(140, avgWidth * 0.72);
+      });
+      if (similar.length >= 2) {
+        return similar.sort(function(a, b) {
+          var ar = a.getBoundingClientRect();
+          var br = b.getBoundingClientRect();
+          return ar.top - br.top || ar.left - br.left;
+        }).slice(0, 8);
+      }
+    }
+
+    return [];
+  }
+
+  function dgCollectViewportChoiceCards(result) {
+    if (!dgHasForcedChoiceMode() && (dgLooksLikeDragType(result) || dgHasRealDragSignals(result))) return [];
+    var isDesktop = dgIsDesktopWide();
+    var qRect = dgRelevantQuestionRect(result);
+    var pool = [];
+    try {
+      pool = Array.from(document.querySelectorAll('button, label, div, article, li, section'));
+    } catch (_) {}
+
+    var seen = new Set();
+    var out = [];
+
+    function hasCardVisual(el) {
+      if (!el) return false;
+      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      var shadow = style ? String(style.boxShadow || '') : '';
+      return (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || (bgImg && bgImg !== 'none')
+        || (border && border !== 'rgba(0, 0, 0, 0)' && border !== 'transparent')
+        || (shadow && shadow !== 'none');
+    }
+
+    pool.forEach(function(node) {
+      if (!node || !node.getBoundingClientRect || node.closest('#qs-panel') || node.offsetParent === null) return;
+      var el = dgFindVisualChoiceRoot(node, result) || dgPromoteChoiceRoot(node, result);
+      if (!el || !el.getBoundingClientRect || el.closest('#qs-panel') || dgIsChoiceGroupShell(el)) return;
+
+      var rect = el.getBoundingClientRect();
+      var txt = dgChoiceText(el);
+      if (!txt || txt.length > (isDesktop ? 120 : 90) || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (rect.width < window.innerWidth * (isDesktop ? 0.18 : 0.40)) return;
+      if (rect.height < 90 || rect.height > (isDesktop ? 560 : 320)) return;
+      if (rect.top < window.innerHeight * (isDesktop ? 0.42 : 0.40)) return;
+      if (qRect && rect.top < qRect.bottom - 8) return;
+      if (!dgLooksLikeChoiceContainer(el) && !dgIsNativeChoiceRoot(el) && !hasCardVisual(el)) return;
+
+      var score = dgChoiceScore(el, result);
+      if (score < 110) return;
+
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 8) + '|' + Math.round(rect.left / 8) + '|' + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(el);
+    });
+
+    if (out.length < 2) return [];
+
+    out = out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+
+    var avgWidth = out.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / out.length;
+    var avgHeight = out.reduce(function(sum, el) { return sum + el.getBoundingClientRect().height; }, 0) / out.length;
+    var normalized = out.filter(function(el) {
+      var rect = el.getBoundingClientRect();
+      return Math.abs(rect.width - avgWidth) <= Math.max(160, avgWidth * 0.72)
+        && Math.abs(rect.height - avgHeight) <= Math.max(140, avgHeight * 0.65);
+    });
+
+    return (normalized.length >= 2 ? normalized : out).slice(0, 8);
+  }
+
+  function dgCollectLegacyChoiceOptions(result) {
+    var seen = new Set();
+    var out = [];
+
+    function push(el) {
+      if (!el) return;
+      var promoted = dgPromoteChoiceRoot(el, result);
+      if (!promoted || !promoted.getBoundingClientRect || promoted.closest("#qs-panel")) return;
+      if (dgIsChoiceGroupShell(promoted)) return;
+      var rect = promoted.getBoundingClientRect();
+      var txt = dgChoiceText(promoted);
+      if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (rect.width < 40 || rect.height < 24 || rect.height > (dgIsDesktopWide() ? Math.min(window.innerHeight * 0.84, 760) : Math.min(window.innerHeight * 0.38, 320))) return;
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 8) + "|" + Math.round(rect.left / 8) + "|" + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(promoted);
+    }
+
+    var optSelectors = [
+      '.option.is-selectable','[data-testid="option"]','[data-testid="answer-option"]',
+      '[class*="OptionCard"]','[class*="option-card"]','.options-container .option',
+      '[class*="MCQOption"]','[class*="mcq-option"]','.option-item','.answer-option',
+      'button[class*="option"]','[role="option"]','[class*="AnswerOption"]','[class*="answerOption"]',
+      '[class*="choice"]','[class*="Choice"]','[class*="alternative"]','[class*="Alternative"]',
+      '[class*="answer-choice"]','[class*="AnswerChoice"]','[class*="quiz-option"]','[class*="QuizOption"]',
+      '[class*="response-option"]','[class*="ResponseOption"]','[role="radio"]','[role="checkbox"]',
+      'label[class*="option"]','label[class*="Option"]','label[class*="answer"]','label[class*="Answer"]'
+    ];
+
+    for (var si = 0; si < optSelectors.length; si++) {
+      try {
+        var found = document.querySelectorAll(optSelectors[si]);
+        if (found.length >= 2) {
+          Array.from(found).forEach(function(el) {
+            if (el && el.offsetParent !== null && !el.closest("#qs-panel")) push(el);
+          });
+          if (out.length >= 2) break;
+        }
+      } catch (_) {}
+    }
+
+    if (out.length < 2) {
+      var containerSels = ['[class*="options"]', '[class*="Options"]', '[class*="choices"]', '[class*="Choices"]', '[class*="answers"]', '[class*="Answers"]'];
+      for (var ci = 0; ci < containerSels.length; ci++) {
+        try {
+          var containers = document.querySelectorAll(containerSels[ci]);
+          for (var cj = 0; cj < containers.length; cj++) {
+            var container = containers[cj];
+            if (!container || container.closest("#qs-panel")) continue;
+            var kids = container.querySelectorAll('button, [role="button"], [role="option"], [role="radio"], [role="checkbox"], label, [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"]');
+            Array.from(kids).forEach(function(el) {
+              if (el && el.offsetParent !== null && !el.closest("#qs-panel") && dgChoiceText(el)) push(el);
+            });
+            if (out.length >= 2) break;
+          }
+          if (out.length >= 2) break;
+        } catch (_) {}
+      }
+    }
+
+    if (out.length < 2) {
+      var mainArea = document.querySelector('main, [class*="game"], [class*="Game"], [class*="quiz"], [class*="Quiz"]') || document.body;
+      if (mainArea) {
+        var blockCandidates = Array.from(mainArea.querySelectorAll('button, label, div, article, li, section')).filter(function(el) {
+          if (!el || !el.getBoundingClientRect || !el.offsetParent || el.closest("#qs-panel")) return false;
+          var txt = dgChoiceText(el);
+          if (!txt || txt.length < 1 || txt.length > 120 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return false;
+          var rect = el.getBoundingClientRect();
+          var isDesktop = dgIsDesktopWide();
+          if (rect.width < window.innerWidth * (isDesktop ? 0.14 : 0.40) || rect.height < 36 || rect.height > (isDesktop ? Math.min(window.innerHeight * 0.84, 760) : 220)) return false;
+          if (rect.top < window.innerHeight * (isDesktop ? 0.18 : 0.38)) return false;
+          var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+          var bg = style ? String(style.backgroundColor || "") : "";
+          var bgImg = style ? String(style.backgroundImage || "") : "";
+          var border = style ? String(style.borderColor || "") : "";
+          var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+          return role === 'button' || role === 'radio' || role === 'option' || role === 'checkbox' || el.tagName === 'BUTTON' || el.tagName === 'LABEL' || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') || bgImg !== 'none' || (border && border !== 'rgba(0, 0, 0, 0)');
+        });
+
+        if (blockCandidates.length >= 2) {
+          var avgWidth = blockCandidates.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / blockCandidates.length;
+          blockCandidates.filter(function(el) {
+            return Math.abs(el.getBoundingClientRect().width - avgWidth) < Math.max(40, avgWidth * 0.24);
+          }).slice(0, 8).forEach(push);
+        }
+      }
+    }
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgCollectChoiceOptions(result) {
+    var nativeChoiceRoots = dgCollectNativeChoiceRoots(result);
+    if (nativeChoiceRoots.length >= 2) return nativeChoiceRoots;
+    if (!dgHasForcedChoiceMode() && dgLooksLikeDragType(result) && dgHasRealDragSignals(result)) return [];
+    var seen = new Set();
+    var out = [];
+    var forcedChoice = dgHasForcedChoiceMode();
+    var qRect = dgRelevantQuestionRect(result);
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    var structuredGrid = dgCollectStructuredGridOptions(result);
+    if (structuredGrid.length >= 2) return structuredGrid;
+    var viewportCards = dgCollectViewportChoiceCards(result);
+    if (viewportCards.length >= 2) return viewportCards;
+    var nativeNodes = [];
+    var seededNodes = [];
+    var textSeedNodes = [];
+    try {
+      seededNodes = Array.isArray(result && result.elements) ? result.elements.filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var txt = dgChoiceText(el);
+        return !!txt && !dgIsActionText(txt) && !dgIsPlaceholderSelectText(txt);
+      }) : [];
+    } catch (_) {}
+    try {
+      textSeedNodes = Array.from(document.querySelectorAll('#optionText, [id="optionText"], [data-cy="option-text"], [data-testid="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text, annotation[encoding="application/x-tex"]'));
+    } catch (_) {}
+    try {
+      nativeNodes = Array.from(document.querySelectorAll(nativeSelectorText));
+    } catch (_) {}
+    var nodes = seededNodes.concat(textSeedNodes).concat(nativeNodes).concat(Array.from(document.querySelectorAll('button, label, div, article, li, span, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="choice"], [class*="Choice"], [class*="answer"], [class*="Answer"], [class*="alternative"], [class*="Alternative"], [class*="card"], [class*="Card"], [data-testid], [data-answer], [data-option], [data-index]')));
+
+    function toClickable(el) {
+      if (!el) return null;
+      if (el.closest) {
+        var nativeRoot = el.closest('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="question-options"] .option, [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], [role="radio"], [role="option"], [role="checkbox"], label, button');
+        if (nativeRoot && nativeRoot !== document.body && nativeRoot !== document.documentElement && !nativeRoot.closest('#qs-panel')) {
+          return dgPromoteChoiceRoot(nativeRoot, result);
+        }
+      }
+      if (el.closest) {
+        var semanticRoot = el.closest('[class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"], [class*="choice"], [class*="Choice"], [class*="alternative"], [class*="Alternative"], [class*="mcq"], [class*="quiz-option"], [data-testid*="option"], [data-cy*="option"]');
+        if (semanticRoot && semanticRoot !== document.body && semanticRoot !== document.documentElement && !semanticRoot.closest('#qs-panel') && !dgIsChoiceGroupShell(semanticRoot)) {
+          return dgPromoteChoiceRoot(semanticRoot, result);
+        }
+      }
+      var visualRoot = dgFindVisualChoiceRoot(el, result);
+      if (visualRoot) return visualRoot;
+      if (el.closest) {
+        var root = el.closest('button, label, [role="button"], [role="radio"], [role="option"], [role="checkbox"]');
+        if (root && root !== document.body && root !== document.documentElement) return dgPromoteChoiceRoot(root, result);
+      }
+      return dgPromoteChoiceRoot(el, result);
+    }
+
+    nodes.forEach(function(node) {
+      var el = toClickable(node);
+      if (!el || el.closest("#qs-panel")) return;
+      var elRect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+      if (!el.offsetParent && !(elRect && elRect.width > 0 && elRect.height > 0)) return;
+      var txt = dgChoiceText(el);
+      var rect = elRect || { top: 0, left: 0, width: 0, height: 0, bottom: 0 };
+      if (qRect && !forcedChoice) {
+        if (rect.top < qRect.bottom - 24) return;
+        if (Math.abs((rect.left + rect.width / 2) - (window.innerWidth / 2)) > window.innerWidth * 0.50) return;
+      }
+      var isNativeChoice = dgIsNativeChoiceRoot(el);
+      var isLargeColoredBlock = rect.width >= (dgIsDesktopWide() ? window.innerWidth * 0.14 : window.innerWidth * 0.38) && rect.height >= 36 && txt.length <= (dgIsDesktopWide() ? 420 : 300);
+      if (!dgLooksLikeChoiceContainer(el) && !isLargeColoredBlock && !isNativeChoice) return;
+      var score = dgChoiceScore(el, result);
+      if (score < (isNativeChoice || forcedChoice ? 24 : 48)) return;
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 6) + "|" + Math.round(rect.left / 6) + "|" + Math.round(rect.width / 6);
+      if (seen.has(key)) return;
+
+      for (var i = 0; i < out.length; i++) {
+        var prev = out[i];
+        var prevRect = prev.getBoundingClientRect();
+        var sameText = dgNorm(dgChoiceText(prev)) === dgNorm(txt);
+        var sameSpot = Math.abs(prevRect.top - rect.top) < 20 && Math.abs(prevRect.left - rect.left) < 20;
+        var nested = prev.contains(el) || el.contains(prev);
+        if (sameText && (sameSpot || nested)) {
+          if (dgChoiceScore(el, result) > dgChoiceScore(prev, result)) out[i] = el;
+          seen.add(key);
+          return;
+        }
+      }
+
+      seen.add(key);
+      out.push(el);
+    });
+
+    out = out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+
+    if (out.length > 8) {
+      out = out.filter(function(el) {
+        var rect = el.getBoundingClientRect();
+        return dgIsNativeChoiceRoot(el) || (rect.width >= window.innerWidth * (dgIsDesktopWide() ? 0.12 : 0.34) && rect.height >= 34);
+      });
+    }
+
+    if (out.length < 2 && seededNodes.length >= 2) {
+      out = seededNodes.map(function(el) { return toClickable(el); }).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var txt = dgChoiceText(el);
+        return !!txt && !dgIsActionText(txt) && !dgIsPlaceholderSelectText(txt);
+      }).sort(function(a, b) {
+        var ar = a.getBoundingClientRect();
+        var br = b.getBoundingClientRect();
+        return ar.top - br.top || ar.left - br.left;
+      });
+    }
+
+    if (out.length < 2) {
+      var legacyOut = dgCollectLegacyChoiceOptions(result);
+      if (legacyOut.length >= 2) out = legacyOut;
+    }
+
+    return out;
+  }
+
+  function dgScoreTrigger(el) {
+    if (!el || !el.getBoundingClientRect) return -999;
+    var txt = dgTxt(el);
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+    var rect = el.getBoundingClientRect();
+    var score = 0;
+    if (dgIsPlaceholderSelectText(txt)) score += 280;
+    if (popup === "listbox" || role === "combobox") score += 120;
+    if (el.tagName === "BUTTON") score += 18;
+    if (el.tagName === "SELECT") score += 70;
+    if (rect.width >= 110 && rect.height >= 30 && rect.height <= 96) score += 20;
+    if (txt.length > 80) score -= 40;
+    return score;
+  }
+
+  function dgCollectSelectTriggers() {
+    var seen = new Set();
+    var out = [];
+    var pool = Array.from(document.querySelectorAll('button.options-dropdown, button[aria-haspopup="listbox"], [role="combobox"], [aria-haspopup="listbox"], select, [class*="select"], [class*="Select"], [class*="dropdown"], [class*="Dropdown"]'));
+
+    function push(el) {
+      if (!el || !el.offsetParent || el.closest("#qs-panel")) return;
+      var txt = dgTxt(el);
+      var rect = el.getBoundingClientRect();
+      if (!txt || dgIsActionText(txt)) return;
+      if (rect.width < 100 || rect.height < 28 || rect.height > 96) return;
+
+      var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+      var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+      var interactive = el.tagName === "SELECT" || el.tagName === "BUTTON" || popup === "listbox" || role === "combobox";
+      if (!interactive && !dgIsPlaceholderSelectText(txt)) return;
+
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 8) + "|" + Math.round(rect.left / 8) + "|" + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+
+      for (var i = 0; i < out.length; i++) {
+        var ex = out[i];
+        var exTxt = dgTxt(ex);
+        var exRect = ex.getBoundingClientRect();
+        var sameText = dgNorm(exTxt) === dgNorm(txt);
+        var nested = ex.contains(el) || el.contains(ex);
+        var sameSpot = Math.abs(exRect.top - rect.top) < 18 && Math.abs(exRect.left - rect.left) < 18;
+        if (sameText && (nested || sameSpot)) {
+          if (dgScoreTrigger(el) > dgScoreTrigger(ex)) out[i] = el;
+          seen.add(key);
+          return;
+        }
+      }
+
+      seen.add(key);
+      out.push(el);
+    }
+
+    pool.forEach(push);
+    return out.sort(function(a, b) {
+      return dgScoreTrigger(b) - dgScoreTrigger(a) || a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+    });
+  }
+
+  function dgGetMenuItems(trigger) {
+    var out = [];
+    var seen = new Set();
+    var trigRect = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
+    var selectors = [
+      '[role="option"]','[role="menuitem"]','[role="menuitemradio"]','[role="menuitemcheckbox"]','li[role="option"]',
+      '[class*="dropdown"] [class*="option"]','[class*="Dropdown"] [class*="option"]','[class*="menu"] [class*="item"]','[class*="Menu"] [class*="item"]',
+      '[class*="popup"] [class*="option"]','[class*="Popup"] [class*="option"]','[class*="listbox"] > *','[class*="Listbox"] > *',
+      '[data-radix-popper-content-wrapper] [role="option"]','[data-radix-popper-content-wrapper] [data-value]','[data-value]'
+    ];
+
+    function add(el) {
+      if (!el || !el.offsetParent || el.closest("#qs-panel")) return;
+      if (trigger && (el === trigger || (trigger.contains && trigger.contains(el)) || (el.contains && el.contains(trigger)))) return;
+
+      var txt = dgTxt(el);
+      if (!txt || txt.length > 80 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+
+      var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+      var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+      if (popup === "listbox" || role === "combobox") return;
+
+      var rect = el.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 20 || rect.height > 96) return;
+      if (trigRect) {
+        var center = rect.left + rect.width / 2;
+        var trigCenter = trigRect.left + trigRect.width / 2;
+        if (Math.abs(center - trigCenter) > Math.max(trigRect.width * 1.4, 220)) return;
+        if (rect.top < trigRect.top - 64 || rect.top > trigRect.bottom + Math.min(window.innerHeight * 0.82, 620)) return;
+      }
+
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 6) + "|" + Math.round(rect.left / 6);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(el);
+    }
+
+    selectors.forEach(function(sel) {
+      try { document.querySelectorAll(sel).forEach(add); } catch (_) {}
+    });
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgUniqueOptions(items) {
+    var seen = new Set();
+    return (items || []).map(function(el) { return dgTxt(el); }).filter(function(txt) {
+      var key = dgNorm(txt);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function dgShouldOverrideResult(result, triggers) {
+    if (!triggers.length) return false;
+    if (!result || !result.questionType) return true;
+    if (result.questionType === "unknown" || result.questionType === "dropdown") return true;
+    var opts = Array.isArray(result.options) ? result.options : [];
+    if (!opts.length && triggers.length > 0) return true;
+    if (opts.some(dgIsPlaceholderSelectText)) return true;
+    if (opts.length > 1 && opts.every(function(opt) { return dgNorm(opt) === dgNorm(opts[0]); })) return true;
+    if ((result.fillBlanks || []).length && triggers.length !== (result.fillBlanks || []).length) return true;
+    return false;
+  }
+
+  var __dgExtract = extractPageContent;
+  extractPageContent = function() {
+    var result = __dgExtract.apply(this, arguments) || {};
+    try {
+      var forcedMode = dgForcedMode();
+      if (forcedMode === "drag" && (dgHasRealDragSignals(result) || dgLooksLikeDragType(result))) {
+        result.questionType = /match|connect/.test(dgNorm((result && (result.questionType || result.type || "")) || "")) ? "match" : "drag";
+        result.type = result.questionType;
+        result.selectMode = "drag";
+        result.dynamicSelect = false;
+        log("DRAG FORCE v2.6.0: type=" + result.questionType, "inf");
+        return result;
+      }
+      var triggers = dgCollectSelectTriggers();
+      if (triggers.length) {
+        var placeholderTriggers = triggers.filter(function(el) { return dgIsPlaceholderSelectText(dgTxt(el)); });
+        var targetTriggers = placeholderTriggers.length ? placeholderTriggers : triggers;
+        var menuItems = dgGetMenuItems(targetTriggers[0]);
+        var options = dgUniqueOptions(menuItems);
+
+        if (dgHasForcedSelectMode() || dgShouldOverrideResult(result, targetTriggers) || targetTriggers.length > 1) {
+          var forcedMultiSelect = forcedMode === "multi_select";
+          result.questionType = forcedMultiSelect || targetTriggers.length > 1 ? "multi" : "single";
+          result.type = result.questionType;
+          result.selectMode = forcedMultiSelect || targetTriggers.length > 1 ? "multi_select" : "single_select";
+          result.dynamicSelect = true;
+          result.inputElement = targetTriggers[0];
+          result.fillBlanks = targetTriggers.slice();
+          result.elements = menuItems.slice();
+          result.options = options.slice();
+          result.isWaygroundSelectPatched = true;
+          log("SELECT PATCH v2.6.0: mode=" + result.selectMode + " blanks=" + result.fillBlanks.length + " opts=" + result.options.length + (forcedMode !== "auto" ? " forced=" + forcedMode : ""), "inf");
+        }
+      }
+
+      var choiceEls = dgCollectChoiceOptions(result);
+      if (choiceEls.length) {
+        var choiceOptions = dgUniqueOptions(choiceEls);
+        var falseDragDesktop = dgIsDesktopWide() && dgLooksLikeDragType(result) && !dgHasRealDragSignals(result);
+        var shouldPatchChoices = choiceEls.length >= 2 && (
+          dgHasForcedChoiceMode() ||
+          !result.questionType ||
+          result.questionType === "unknown" ||
+          result.questionType === "dropdown" ||
+          falseDragDesktop ||
+          !Array.isArray(result.options) ||
+          !result.options.length ||
+          result.options.every(function(opt) { return dgIsPlaceholderSelectText(opt); })
+        );
+        if (shouldPatchChoices && forcedMode !== "drag") {
+          var isMulti = forcedMode === "multi_choice" ? true : dgIsMultiQuestion(result);
+          result.questionType = isMulti ? "multi" : "single";
+          result.type = result.questionType;
+          result.selectMode = isMulti ? "multi_choice" : "single_choice";
+          result.dynamicSelect = false;
+          result.inputElement = choiceEls[0];
+          result.fillBlanks = [];
+          result.elements = choiceEls.slice();
+          result.options = choiceOptions.slice();
+          result.isWaygroundChoicePatched = true;
+          log("CHOICE PATCH v2.6.0: mode=" + result.selectMode + " opts=" + result.options.length + (forcedMode !== "auto" ? " forced=" + forcedMode : ""), "inf");
+        }
+      } else if (dgHasForcedChoiceMode()) {
+        log("CHOICE PATCH miss v2.6.0: forced=" + forcedMode + " type=" + String(result.questionType || "unknown"), "wrn");
+      }
+
+      if (forcedMode !== 'auto' && window.__dgLastEmbeddedDetectionMode !== forcedMode) {
+        window.__dgLastEmbeddedDetectionMode = forcedMode;
+        log("DETECTION EMBED v2.6.0: mode=" + forcedMode, "inf");
+      }
+    } catch (e) {
+      log("SELECT PATCH extract error: " + (e && e.message ? e.message : e), "wrn");
+    }
+    return result;
+  };
+
+  function dgUiModeFromLabel(label) {
+    var txt = dgNorm(label);
+    if (/^auto$/.test(txt)) return 'auto';
+    if (/^alternativa|single|choice|mcq|radio/.test(txt)) return 'choice';
+    if (/multi|multipla|múltipla/.test(txt)) return 'multi_choice';
+    if (/arrastar|drag|soltar|match|connect/.test(txt)) return 'drag';
+    if (/multi.?select/.test(txt)) return 'multi_select';
+    if (/select|dropdown|combobox|lacuna|blank/.test(txt)) return 'select';
+    if (/v\/f|verdadeiro|falso|true false/.test(txt)) return 'true_false';
+    if (/aberta|open|texto/.test(txt)) return 'open';
+    if (/enquete|poll/.test(txt)) return 'poll';
+    return '';
+  }
+
+  function dgFindDetectionButtons(panel) {
+    return Array.from(panel.querySelectorAll('button, [role="button"], [role="tab"]')).filter(function(el) {
+      var mode = dgUiModeFromLabel(dgTxt(el));
+      return !!mode && !el.closest('.dg-detection-embed-bar');
+    });
+  }
+
+  function dgPersistEmbeddedDetection(mode, btn) {
+    if (!mode) return;
+    try {
+      if (!S.settings) S.settings = {};
+      S.settings.detectionMode = mode;
+      S.settings.forceDetectionMode = mode;
+      S.settings.detectionEmbeddedAt = new Date().toISOString();
+      try { localStorage.setItem('dgly_detection_mode', mode); } catch (_) {}
+      var client = window.DoglyWebhook && window.DoglyWebhook.createClient ? window.DoglyWebhook.createClient({}) : null;
+      var payload = Object.assign({}, S.settings, {
+        detectionMode: mode,
+        forceDetectionMode: mode,
+        detectionEmbeddedAt: S.settings.detectionEmbeddedAt,
+      });
+      var done = function(ok) {
+        if (btn) {
+          btn.dataset.pending = '0';
+          btn.textContent = ok ? ('✓ Embutido: ' + mode) : 'Embutir detecção';
+          btn.style.opacity = '1';
+        }
+        setStatus('Detecção embutida: ' + mode, ok ? 'suc' : 'wrn');
+        log('DETECTION SAVE v2.6.0: ' + mode + ' ' + (ok ? 'ok' : 'fallback'), ok ? 'suc' : 'wrn');
+        var panel = document.querySelector('#qs-panel');
+        var detectBtn = panel ? Array.from(panel.querySelectorAll('button')).find(function(el) { return /detectar|detect/.test(dgNorm(dgTxt(el))); }) : null;
+        if (detectBtn) setTimeout(function() { try { detectBtn.click(); } catch (_) {} }, 120);
+      };
+      if (client && client.saveConfig) {
+        if (btn) {
+          btn.textContent = 'Embutindo...';
+          btn.style.opacity = '0.82';
+        }
+        Promise.resolve(client.saveConfig(payload)).then(function(res) {
+          done(!res || res.success !== false);
+        }).catch(function() {
+          done(false);
+        });
+      } else {
+        done(false);
+      }
+    } catch (_) {}
+  }
+
+  function dgInjectDetectionEmbedUi() {
+    var panel = document.querySelector('#qs-panel');
+    if (!panel) return;
+    var buttons = dgFindDetectionButtons(panel);
+    if (buttons.length < 2) return;
+    var host = buttons[0].parentElement;
+    if (!host || !host.parentElement) return;
+    var bar = host.parentElement.querySelector('.dg-detection-embed-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'dg-detection-embed-bar';
+      bar.style.display = 'flex';
+      bar.style.alignItems = 'center';
+      bar.style.justifyContent = 'space-between';
+      bar.style.gap = '10px';
+      bar.style.marginTop = '12px';
+      bar.style.padding = '10px 12px';
+      bar.style.borderRadius = '14px';
+      bar.style.border = '1px solid rgba(123,92,255,.28)';
+      bar.style.background = 'linear-gradient(135deg, rgba(20,24,36,.92), rgba(51,30,92,.88))';
+      bar.style.boxShadow = '0 12px 28px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.06)';
+
+      var info = document.createElement('div');
+      info.className = 'dg-detection-embed-info';
+      info.style.display = 'flex';
+      info.style.flexDirection = 'column';
+      info.style.minWidth = '0';
+
+      var title = document.createElement('strong');
+      title.textContent = 'Embutir detecção';
+      title.style.fontSize = '12px';
+      title.style.color = '#f8faff';
+
+      var meta = document.createElement('span');
+      meta.className = 'dg-detection-embed-meta';
+      meta.textContent = 'Selecione um modo estável e aplique neste script';
+      meta.style.fontSize = '11px';
+      meta.style.color = 'rgba(222,231,255,.72)';
+      meta.style.lineHeight = '1.35';
+
+      var apply = document.createElement('button');
+      apply.type = 'button';
+      apply.className = 'dg-detection-embed-action';
+      apply.textContent = 'Embutir detecção';
+      apply.style.border = '0';
+      apply.style.cursor = 'pointer';
+      apply.style.padding = '10px 14px';
+      apply.style.borderRadius = '12px';
+      apply.style.fontWeight = '700';
+      apply.style.fontSize = '12px';
+      apply.style.color = '#ffffff';
+      apply.style.whiteSpace = 'nowrap';
+      apply.style.background = 'linear-gradient(135deg, #7c3aed, #22c55e)';
+      apply.style.boxShadow = '0 10px 22px rgba(124,58,237,.28)';
+      apply.addEventListener('click', function() {
+        var selected = apply.dataset.selectedMode || (S.settings && S.settings.pendingDetectionMode) || (S.settings && S.settings.detectionMode) || 'auto';
+        dgPersistEmbeddedDetection(selected, apply);
+      });
+
+      info.appendChild(title);
+      info.appendChild(meta);
+      bar.appendChild(info);
+      bar.appendChild(apply);
+      host.parentElement.appendChild(bar);
+    }
+
+    var actionBtn = bar.querySelector('.dg-detection-embed-action');
+    var metaEl = bar.querySelector('.dg-detection-embed-meta');
+    buttons.forEach(function(btn) {
+      if (btn.dataset.dgEmbedHooked === '1') return;
+      btn.dataset.dgEmbedHooked = '1';
+      btn.addEventListener('click', function() {
+        var mode = dgUiModeFromLabel(dgTxt(btn));
+        if (!mode) return;
+        if (!S.settings) S.settings = {};
+        S.settings.pendingDetectionMode = mode;
+        if (actionBtn) actionBtn.dataset.selectedMode = mode;
+        if (actionBtn) actionBtn.textContent = 'Embutir: ' + mode;
+        if (metaEl) metaEl.textContent = 'Modo selecionado: ' + mode + ' · será salvo neste script';
+      }, true);
+    });
+
+    var currentMode = (S.settings && (S.settings.pendingDetectionMode || S.settings.detectionMode)) || 'auto';
+    if (actionBtn && !actionBtn.dataset.selectedMode) actionBtn.dataset.selectedMode = currentMode;
+    if (metaEl) metaEl.textContent = 'Modo atual: ' + currentMode + ' · clique em Embutir para forçar';
+  }
+
+  setTimeout(dgInjectDetectionEmbedUi, 900);
+  setInterval(dgInjectDetectionEmbedUi, 1500);
+
+  function dgParseAnswers(answer, blanksCount) {
+    var raw = String(answer || "").trim();
+    if (!raw) return [];
+    var lines = raw.split(/\n+/).map(function(v) { return v.trim(); }).filter(Boolean);
+    if (lines.length === 1 && blanksCount > 1) {
+      lines = raw.split(/[;,|]+/).map(function(v) { return v.trim(); }).filter(Boolean);
+    }
+    if (lines.length === 1 && blanksCount > 1) {
+      var tf = raw.match(/(verdadeiro|falso|true|false|v\/f|v|f)/ig);
+      if (tf && tf.length > 1) lines = tf;
+    }
+    return lines.map(function(v) { return v.replace(/^\s*([A-Z]|\d+)\s*[).:-]?\s*/i, "").trim(); }).filter(Boolean);
+  }
+
+  function dgItemScore(itemText, answerText) {
+    var item = dgNorm(itemText);
+    var ans = dgNorm(answerText);
+    if (!item || !ans) return -1;
+    if (item === ans) return 1000;
+    var tfTrue = /^(true|verdadeiro|v|sim|yes)$/i;
+    var tfFalse = /^(false|falso|f|nao|não|no)$/i;
+    if (tfTrue.test(answerText) && tfTrue.test(itemText)) return 950;
+    if (tfFalse.test(answerText) && tfFalse.test(itemText)) return 950;
+    if (item.indexOf(ans) >= 0 || ans.indexOf(item) >= 0) return 820 - Math.abs(item.length - ans.length);
+    var aWords = ans.split(/\s+/).filter(Boolean);
+    var iWords = item.split(/\s+/).filter(Boolean);
+    var common = aWords.filter(function(w) { return iWords.indexOf(w) >= 0; }).length;
+    if (!common) return -1;
+    return Math.round((common / Math.max(aWords.length, iWords.length, 1)) * 700);
+  }
+
+  function dgResolveMenuItem(items, answerText, usedMap) {
+    if (!items || !items.length) return null;
+    var best = null;
+    var bestScore = -1;
+    var letterMatch = String(answerText || "").match(/^\s*([A-Da-d])\s*[).\s]?/);
+    if (letterMatch) {
+      var idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < items.length && !(usedMap && usedMap[idx])) return { el: items[idx], idx: idx, label: dgTxt(items[idx]) };
+    }
+    for (var i = 0; i < items.length; i++) {
+      if (usedMap && usedMap[i]) continue;
+      var score = dgItemScore(dgTxt(items[i]), answerText);
+      if (score > bestScore) {
+        best = items[i];
+        bestScore = score;
+      }
+    }
+    if (!best || bestScore < 0) return null;
+    return { el: best, idx: items.indexOf(best), label: dgTxt(best) };
+  }
+
+  function dgResolveChoiceElement(items, answerText, usedMap) {
+    if (!items || !items.length) return null;
+    var best = null;
+    var bestScore = -1;
+    var letterMatch = String(answerText || "").match(/^\s*([A-Da-d])\s*[).\s-]?/);
+    if (letterMatch) {
+      var idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < items.length && !(usedMap && usedMap[idx])) return { el: items[idx], idx: idx, label: dgTxt(items[idx]) };
+    }
+    for (var i = 0; i < items.length; i++) {
+      if (usedMap && usedMap[i]) continue;
+      var label = dgChoiceText(items[i]).replace(/^\s*([A-Z]|\d+)\s*[).:-]\s*/i, "").trim();
+      var score = dgItemScore(label, answerText);
+      if (score > bestScore) {
+        best = items[i];
+        bestScore = score;
+      }
+    }
+    if (!best || bestScore < 0) return null;
+    return { el: best, idx: items.indexOf(best), label: dgChoiceText(best) };
+  }
+
+  function dgClickChoice(el, done) {
+    if (!el) return done(false);
+    try { highlight(el); } catch (_) {}
+    try { el.click(); } catch (_) {}
+    setTimeout(function() {
+      done(true);
+    }, 80);
+  }
+
+  function dgOpenAndPick(trigger, answerText, done, usedMap) {
+    if (!trigger) {
+      done(false, answerText);
+      return;
+    }
+    try { highlight(trigger); } catch (_) {}
+    try { trigger.click(); } catch (_) {}
+    setTimeout(function() {
+      var items = dgGetMenuItems(trigger);
+      var resolved = dgResolveMenuItem(items, answerText, usedMap);
+      if (resolved && resolved.el) {
+        try { highlight(resolved.el); } catch (_) {}
+        try { resolved.el.click(); } catch (_) {}
+        if (usedMap) usedMap[resolved.idx] = true;
+        done(true, resolved.label || answerText);
+      } else {
+        done(false, answerText);
+      }
+    }, 280);
+  }
+
+  var __dgApply = applyAnswer;
+  applyAnswer = function(data, answer) {
+    try {
+      if (data && data.isWaygroundChoicePatched && Array.isArray(data.elements) && data.elements.length) {
+        var choiceParts = dgParseAnswers(answer, data.questionType === "multi" ? data.elements.length : 1);
+        var choiceUsed = {};
+        if ((data.questionType === "multi" || data.selectMode === "multi_choice") && choiceParts.length > 1) {
+          var cp = 0;
+          var clicked = 0;
+          (function nextChoice() {
+            if (cp >= choiceParts.length) {
+              setStatus(clicked + " alternativas marcadas", clicked > 0 ? "suc" : "wrn");
+              log("CHOICE MULTI v2.6.0: marcadas=" + clicked, clicked > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && clicked > 0) setTimeout(clickSubmit, 850);
+              return;
+            }
+            var resolvedChoice = dgResolveChoiceElement(data.elements, choiceParts[cp], choiceUsed);
+            if (!resolvedChoice) {
+              log("CHOICE MULTI miss: " + choiceParts[cp], "wrn");
+              cp++;
+              return setTimeout(nextChoice, 120);
+            }
+            choiceUsed[resolvedChoice.idx] = true;
+            dgClickChoice(resolvedChoice.el, function(ok) {
+              if (ok) clicked++;
+              log("CHOICE[" + (cp + 1) + "] " + (ok ? "ok" : "fail") + ": " + resolvedChoice.label, ok ? "suc" : "wrn");
+              cp++;
+              setTimeout(nextChoice, 150);
+            });
+          })();
+          return;
+        }
+
+        var wantedChoice = choiceParts[0] || String(answer || "").trim();
+        var resolvedSingleChoice = dgResolveChoiceElement(data.elements, wantedChoice, choiceUsed);
+        if (resolvedSingleChoice && resolvedSingleChoice.el) {
+          dgClickChoice(resolvedSingleChoice.el, function(ok) {
+            setStatus("Alternativa: " + String(resolvedSingleChoice.label || wantedChoice).substring(0, 60), ok ? "suc" : "wrn");
+            log("CHOICE v2.6.0: " + (ok ? "respondido" : "falhou") + " -> " + String(resolvedSingleChoice.label || wantedChoice).substring(0, 60), ok ? "suc" : "wrn");
+            if (S.settings.autoSubmit && ok) setTimeout(clickSubmit, 850);
+          });
+          return;
+        }
+      }
+
+      if (data && (data.selectMode || data.isWaygroundSelectPatched || (data.dynamicSelect && (data.inputElement || (data.fillBlanks && data.fillBlanks.length))))) {
+        var blanks = Array.isArray(data.fillBlanks) && data.fillBlanks.length ? data.fillBlanks.filter(Boolean) : (data.inputElement ? [data.inputElement] : []);
+        if (!blanks.length) return __dgApply.apply(this, arguments);
+
+        var parts = dgParseAnswers(answer, blanks.length);
+        var used = {};
+
+        if (blanks.length > 1) {
+          var idx = 0;
+          var okCount = 0;
+          (function nextBlank() {
+            if (idx >= blanks.length) {
+              setStatus(okCount + "/" + blanks.length + " selects preenchidos", okCount > 0 ? "suc" : "wrn");
+              log("MULTI SELECT v2.6.0: preenchidos=" + okCount + "/" + blanks.length, okCount > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && okCount > 0) setTimeout(clickSubmit, 900);
+              return;
+            }
+            var desired = parts[idx] || parts[0] || String(answer || "").trim();
+            dgOpenAndPick(blanks[idx], desired, function(ok, label) {
+              if (ok) okCount++;
+              log("SELECT[" + (idx + 1) + "] " + (ok ? "ok" : "fail") + ": " + String(label || desired).substring(0, 60), ok ? "suc" : "wrn");
+              idx++;
+              setTimeout(nextBlank, ok ? 220 : 160);
+            });
+          })();
+          return;
+        }
+
+        if ((data.questionType === "multi" || data.selectMode === "multi_select") && parts.length > 1) {
+          var p = 0;
+          var selected = 0;
+          (function nextItem() {
+            if (p >= parts.length) {
+              setStatus(selected + " opcoes selecionadas", selected > 0 ? "suc" : "wrn");
+              log("MULTI SELECT options v2.6.0: selecionadas=" + selected, selected > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && selected > 0) setTimeout(clickSubmit, 900);
+              return;
+            }
+            dgOpenAndPick(blanks[0], parts[p], function(ok) {
+              if (ok) selected++;
+              p++;
+              setTimeout(nextItem, ok ? 220 : 160);
+            }, used);
+          })();
+          return;
+        }
+
+        var wanted = parts[0] || String(answer || "").trim();
+        dgOpenAndPick(blanks[0], wanted, function(ok, label) {
+          setStatus((data.selectMode === "multi_select" ? "Multi Select" : "Select") + ": " + String(label || wanted).substring(0, 60), ok ? "suc" : "wrn");
+          log("SELECT v2.6.0: " + (ok ? "respondido" : "sem match") + " -> " + String(label || wanted).substring(0, 60), ok ? "suc" : "wrn");
+          if (S.settings.autoSubmit && ok) setTimeout(clickSubmit, 850);
+        });
+        return;
+      }
+    } catch (e) {
+      log("SELECT PATCH apply error: " + (e && e.message ? e.message : e), "wrn");
+    }
+    return __dgApply.apply(this, arguments);
+  };
+})();
+
+;(() => {
+  if (typeof extractPageContent !== "function" || typeof applyAnswer !== "function") return;
+
+  function dgTxt(el) {
+    return ((el && (el.innerText || el.textContent)) || "").trim().replace(/\s+/g, " ");
+  }
+
+  function dgChoiceText(el) {
+    if (!el) return "";
+    try {
+      var latex = el.querySelector && el.querySelector('annotation[encoding="application/x-tex"]');
+      if (latex && latex.textContent && latex.textContent.trim()) {
+        return latex.textContent.trim().replace(/\s+/g, " ");
+      }
+
+      var explicit = el.querySelector && el.querySelector('#optionText, [id="optionText"], [data-cy="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text');
+      var explicitText = explicit ? ((explicit.innerText || explicit.textContent) || "").trim().replace(/\s+/g, " ") : "";
+      if (explicitText) return explicitText;
+
+      var imgAlt = el.querySelector && el.querySelector('img[alt]');
+      var altText = imgAlt ? String(imgAlt.getAttribute('alt') || '').trim().replace(/\s+/g, ' ') : '';
+      if (altText) return altText;
+
+      var ownAria = el.getAttribute ? String(el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ') : '';
+      if (ownAria) return ownAria;
+
+      var ownData = el.getAttribute ? String(el.getAttribute('data-answer') || el.getAttribute('data-option') || el.getAttribute('data-text') || el.getAttribute('data-value') || '').trim().replace(/\s+/g, ' ') : '';
+      if (ownData) return ownData;
+    } catch (_) {}
+    return dgTxt(el);
+  }
+
+  function dgNorm(v) {
+    if (typeof norm === "function") return norm(v || "");
+    return String(v || "")
+      .toLowerCase()
+      .replace(/[×✕✖x]/g, " x ")
+      .replace(/[÷]/g, " / ")
+      .replace(/[−–—]/g, " - ")
+      .replace(/[·•]/g, " ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s/+.\-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function dgIsPlaceholderSelectText(txt) {
+    var t = dgNorm(txt);
+    return /^(select answer|select the answer|choose answer|choose option|selecione a resposta|selecionar resposta|selecione|selecionar|escolha|responder)$/.test(t);
+  }
+
+  function dgIsActionText(txt) {
+    if (typeof isChoiceActionText === "function") return isChoiceActionText(txt);
+    return /^(reset|reiniciar|submit|enviar|check|verificar|next|proxima|próxima|continue|continuar|skip|pular)$/i.test((txt || "").trim());
+  }
+
+  function dgIsDesktopWide() {
+    var w = Math.max(window.innerWidth || 0, (document.documentElement && document.documentElement.clientWidth) || 0);
+    return w >= 1100;
+  }
+
+  function dgForcedMode() {
+    var raw = dgNorm(S && S.settings ? S.settings.detectionMode : "auto");
+    if (!raw || /^(auto|automatico|automatic|automático|detectar|detect)$/.test(raw)) return "auto";
+    if (/^(single|single_choice|choice|alternativa|alternativas|resposta|answer|answers|mcq|radio)$/.test(raw)) return "choice";
+    if (/^(multiple|multi|multi_choice|multipla|múltipla|multiplas|múltiplas|multi answer|multi answers|msq|checkbox)$/.test(raw)) return "multi_choice";
+    if (/^(drag|drag_drop|drag and drop|dragdrop|arrastar|arrastar soltar|arrastar e soltar|soltar|match|connect|ligar|conectar)$/.test(raw)) return "drag";
+    if (/^(reorder|ordenar|sort|arrange)$/.test(raw)) return "drag";
+    if (/^(blank|lacuna|lacunas|fill_blank|fill in the blank)$/.test(raw)) return "select";
+    if (/multi.?select|multi.?dropdown|multi.?blank|varias lacunas|varias opcoes|várias opções/.test(raw)) return "multi_select";
+    if (/dropdown|select|combobox|listbox|blank|lacuna/.test(raw)) return "select";
+    if (/multi|multiple|multipla|múltipla|msq|checkbox|todas|todos|all answers/.test(raw) && /choice|option|alternativa|resposta|answer/.test(raw)) return "multi_choice";
+    if (/single|radio|unica|única|choice|option|alternativa|resposta|answer|mcq/.test(raw)) return "choice";
+    if (/drag|match|connect|ligar|conectar|ordenar|sort|arrange|drop/.test(raw)) return "drag";
+    if (/equation|open|text|typing|digit|input|codigo|código|texto/.test(raw)) return "open";
+    return "auto";
+  }
+
+  function dgHasForcedChoiceMode() {
+    var mode = dgForcedMode();
+    return mode === "choice" || mode === "multi_choice";
+  }
+
+  function dgHasForcedSelectMode() {
+    var mode = dgForcedMode();
+    return mode === "select" || mode === "multi_select";
+  }
+
+  function dgQuestionText(result) {
+    var raw = "";
+    if (result) raw = result.question || result.prompt || result.title || "";
+    if (!raw) {
+      var q = document.querySelector('h1, h2, [class*="question"], [class*="prompt"], [data-testid*="question"]');
+      raw = dgTxt(q);
+    }
+    return raw || "";
+  }
+
+  function dgCountLikelyChoiceDescendants(el) {
+    if (!el || !el.querySelectorAll) return 0;
+    var seen = new Set();
+    var count = 0;
+    var isDesktop = dgIsDesktopWide();
+    var minWidth = window.innerWidth * (isDesktop ? 0.16 : 0.38);
+    var minTop = window.innerHeight * (isDesktop ? 0.22 : 0.34);
+    var maxHeight = Math.min(window.innerHeight * (isDesktop ? 0.72 : 0.40), isDesktop ? 560 : 280);
+    var nodes = [];
+    try {
+      nodes = Array.from(el.querySelectorAll('button, label, div, article, li, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"], [class*="choice"], [class*="Choice"], [class*="alternative"], [class*="Alternative"], [class*="card"], [class*="Card"], [data-testid], [data-cy]'));
+    } catch (_) {}
+    for (var i = 0; i < nodes.length; i++) {
+      if (count >= 4) break;
+      var node = nodes[i];
+      if (!node || node === el || !node.getBoundingClientRect || node.closest('#qs-panel') || node.offsetParent === null) continue;
+      var txt = dgChoiceText(node);
+      if (!txt || txt.length > 320 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) continue;
+      var rect = node.getBoundingClientRect();
+      if (rect.width < minWidth || rect.height < 34 || rect.height > maxHeight || rect.top < minTop) continue;
+      var cls = ((node.className && String(node.className)) || '').toLowerCase();
+      var role = ((node.getAttribute && node.getAttribute('role')) || '').toLowerCase();
+      var style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      var visual = role === 'button' || role === 'radio' || role === 'option' || role === 'checkbox'
+        || /option|choice|answer|alternative|card|selectable|mcq|quiz-option/.test(cls)
+        || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || (bgImg && bgImg !== 'none')
+        || (border && border !== 'rgba(0, 0, 0, 0)' && border !== 'transparent');
+      if (!visual) continue;
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 10) + '|' + Math.round(rect.left / 10) + '|' + Math.round(rect.width / 10);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      count++;
+    }
+    return count;
+  }
+
+  function dgGetQuestionAnchor(result) {
+    var selectors = [
+      '[data-testid*="question"]',
+      '[class*="question"]',
+      '[class*="prompt"]',
+      'h1',
+      'h2'
+    ];
+    var qText = dgNorm(dgQuestionText(result));
+    var best = null;
+    var bestScore = -999;
+
+    function scoreAnchor(el) {
+      if (!el || !el.getBoundingClientRect || !el.offsetParent || el.closest("#qs-panel")) return -999;
+      var txt = dgNorm(dgTxt(el));
+      if (!txt) return -999;
+      var rect = el.getBoundingClientRect();
+      var cls = ((el.className && String(el.className)) || "").toLowerCase();
+      var interactiveCount = 0;
+      var visualChoiceCount = 0;
+      try {
+        interactiveCount = el.querySelectorAll('button, [role="button"], [role="radio"], [role="option"], [role="checkbox"], input, select').length;
+      } catch (_) {}
+      try {
+        visualChoiceCount = dgCountLikelyChoiceDescendants(el);
+      } catch (_) {}
+      var score = 0;
+      if (!qText || txt === qText) score += 240;
+      else if (txt.indexOf(qText) >= 0) score += 170;
+      else if (qText.indexOf(txt) >= 0) score += 120;
+      else return -999;
+      if (visualChoiceCount >= 2 && rect.height >= Math.min(window.innerHeight * 0.30, 240)) return -999;
+      if (/question|prompt/.test(cls)) score += 24;
+      if (rect.height <= Math.min(window.innerHeight * 0.28, 220)) score += 70;
+      else score -= Math.min(220, Math.round(rect.height - Math.min(window.innerHeight * 0.28, 220)));
+      if (rect.width <= window.innerWidth * 0.94) score += 16;
+      if (interactiveCount) score -= Math.min(260, interactiveCount * 48);
+      if (visualChoiceCount) score -= Math.min(320, visualChoiceCount * 95);
+      return score;
+    }
+
+    for (var s = 0; s < selectors.length; s++) {
+      var nodes = [];
+      try { nodes = Array.from(document.querySelectorAll(selectors[s])); } catch (_) {}
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var score = scoreAnchor(el);
+        if (score > bestScore) {
+          best = el;
+          bestScore = score;
+        }
+      }
+    }
+    return bestScore > -200 ? best : null;
+  }
+
+  function dgRelevantQuestionRect(result) {
+    var qAnchor = dgGetQuestionAnchor(result);
+    var qRect = qAnchor && qAnchor.getBoundingClientRect ? qAnchor.getBoundingClientRect() : null;
+    if (!qRect) return null;
+
+    var qInteractive = 0;
+    var qVisualChoices = 0;
+    try {
+      qInteractive = qAnchor.querySelectorAll('button, [role="button"], [role="radio"], [role="option"], [role="checkbox"], input, select').length;
+    } catch (_) {}
+    try {
+      qVisualChoices = dgCountLikelyChoiceDescendants(qAnchor);
+    } catch (_) {}
+
+    if (qVisualChoices >= 2 || (qRect.height > Math.min(window.innerHeight * 0.34, 260) && qInteractive >= 2)) return null;
+    if (qRect.height > Math.min(window.innerHeight * 0.44, 420)) return null;
+    if (qRect.bottom > window.innerHeight * 0.78) return null;
+    return qRect;
+  }
+
+  function dgIsMultiQuestion(result) {
+    var forced = dgForcedMode();
+    if (forced === "multi_choice" || forced === "multi_select") return true;
+    if (forced === "choice" || forced === "select") return false;
+
+    try {
+      var nativeOptions = Array.from(document.querySelectorAll('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="option"][class*="selectable"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 36 && rect.height > 24;
+      });
+      if (nativeOptions.some(function(el) {
+        var cls = ((el.className && String(el.className)) || '').toLowerCase();
+        return /is-msq|checkbox|multiple/.test(cls) || !!(el.querySelector && el.querySelector('input[type="checkbox"], [role="checkbox"]'));
+      })) {
+        return true;
+      }
+    } catch (_) {}
+
+    var txt = dgNorm(dgQuestionText(result));
+    return /select all|choose all|more than one|multiple answers|multi select|marque todas|marque todos|selecione todas|selecione todos|mais de uma|mais de um|duas respostas|duas opcoes|duas opções/.test(txt);
+  }
+
+  function dgLooksLikeDragType(result) {
+    var txt = dgNorm((result && (result.questionType || result.type || result.selectMode)) || "");
+    return /match|connect|drag|drop|sort|reorder|arrange/.test(txt);
+  }
+
+  function dgHasRealDragSignals(result) {
+    var arrays = [
+      result && result.dragItems,
+      result && result.dragElements,
+      result && result.draggables,
+      result && result.dropZones,
+      result && result.dropTargets,
+      result && result.targets,
+      result && result.zones,
+      result && result.matches,
+      result && result.pairs,
+    ];
+    for (var i = 0; i < arrays.length; i++) {
+      if (Array.isArray(arrays[i]) && arrays[i].length >= 2) return true;
+    }
+
+    var draggables = 0;
+    var droppables = 0;
+    try {
+      draggables = Array.from(document.querySelectorAll('[draggable="true"], [data-rbd-draggable-id], [class*="drag"], [class*="Drag"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 24 && rect.height > 24;
+      }).length;
+    } catch (_) {}
+    try {
+      droppables = Array.from(document.querySelectorAll('[aria-dropeffect], [data-rbd-droppable-id], [class*="dropzone"], [class*="drop-zone"], [class*="droppable"], [class*="target"], [class*="blank"]')).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var rect = el.getBoundingClientRect();
+        return rect.width > 36 && rect.height > 24;
+      }).length;
+    } catch (_) {}
+    return draggables >= 2 && droppables >= 2;
+  }
+
+  function dgLooksLikeChoiceContainer(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var bg = style ? String(style.backgroundColor || "") : "";
+    var bgImg = style ? String(style.backgroundImage || "") : "";
+    var inlineStyle = ((el.getAttribute && el.getAttribute("style")) || "").toLowerCase();
+    if (/question|prompt|toolbar|header|footer|modal|dialog|drawer|sheet|menu|dropdown|select|combobox|listbox|toast|solver|config|chat|logs/.test(cls)) return false;
+    if (/radio|option|button|checkbox/.test(role)) return true;
+    if (typeof el.onclick === "function") return true;
+    if (el.tagName === "BUTTON" || el.tagName === "LABEL") return true;
+    if (/option|choice|answer|alternative|alternativa|mcq|quiz|card/.test(cls)) return true;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent" && bg !== "rgb(0, 0, 0)" && bg !== "rgb(255, 255, 255)") return true;
+    if (bgImg && bgImg !== "none") return true;
+    if (/background/.test(inlineStyle)) return true;
+    if (style && (style.cursor === "pointer" || style.cursor === "grab")) return true;
+    if (el.getAttribute && (el.getAttribute("data-testid") || el.getAttribute("data-answer") || el.getAttribute("data-option") || el.getAttribute("data-index") || el.getAttribute("data-id"))) return true;
+    return false;
+  }
+
+  function dgIsChoiceGroupShell(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var rect = el.getBoundingClientRect();
+    var nestedChoices = 0;
+    try {
+      nestedChoices = el.querySelectorAll('.option.is-selectable, .option.is-msq, [role="radio"], [role="option"], [role="checkbox"], [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], #optionText, [id="optionText"], .option-inner, .dnd-option-text').length;
+    } catch (_) {}
+    if (nestedChoices < 2) return false;
+    if (/question-options-layout|resizeable-question-container|question-container|question-card|question-body|prompt-container/.test(cls)) return true;
+    if (rect.width >= window.innerWidth * 0.72 && rect.height >= Math.min(window.innerHeight * 0.26, 220)) return true;
+    return false;
+  }
+
+  function dgIsNativeChoiceRoot(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    if (dgIsChoiceGroupShell(el)) return false;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var testId = ((el.getAttribute && (el.getAttribute("data-testid") || el.getAttribute("data-cy") || el.getAttribute("data-testid"))) || "").toLowerCase();
+    return /(^|\s)(option|is-selectable|is-msq)(\s|$)|option-inner|answer-option|mcq-option|quiz-option/.test(cls)
+      || /option|choice|answer|alternative|alternativa/.test(testId)
+      || role === "radio"
+      || role === "option"
+      || role === "checkbox";
+  }
+
+  function dgChoiceScore(el, result) {
+    if (!el || !el.getBoundingClientRect) return -999;
+    var txt = dgChoiceText(el);
+    var rect = el.getBoundingClientRect();
+    if (dgIsChoiceGroupShell(el)) return -999;
+    var cls = ((el.className && String(el.className)) || "").toLowerCase();
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var bg = style ? String(style.backgroundColor || "") : "";
+    var bgImg = style ? String(style.backgroundImage || "") : "";
+    var inlineStyle = ((el.getAttribute && el.getAttribute("style")) || "").toLowerCase();
+    var radius = style ? parseFloat(style.borderRadius || "0") || 0 : 0;
+    var isDesktop = dgIsDesktopWide();
+    var approxLines = Math.max(1, Math.round(rect.height / 24));
+    var score = 0;
+    if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return -999;
+    if (txt.length > 300) score -= 120;
+    else if (txt.length > 160) score -= 30;
+    else score += 60;
+    if (rect.width >= window.innerWidth * (isDesktop ? 0.14 : 0.36)) score += 26;
+    if (rect.width >= Math.min(window.innerWidth * 0.45, 200)) score += 60;
+    if (isDesktop && rect.width >= window.innerWidth * 0.32) score += 28;
+    if (rect.height >= 36 && rect.height <= 640) score += 40;
+    if (isDesktop && rect.height > 300 && rect.height <= 760) score += 24;
+    if (isDesktop && approxLines <= 18) score += 16;
+    if (rect.top > window.innerHeight * 0.15) score += 18;
+    if (role === "button" || role === "radio" || role === "option" || role === "checkbox") score += 36;
+    if (el.tagName === "BUTTON" || el.tagName === "LABEL") score += 28;
+    if (/option|choice|answer|alternative|alternativa|radio|checkbox|card/.test(cls)) score += 40;
+    if (/is-selectable|is-msq|option-inner|answer-option|mcq-option|quiz-option/.test(cls)) score += 85;
+    if (dgIsNativeChoiceRoot(el)) score += 120;
+    if (el.querySelector && el.querySelector('#optionText, [id="optionText"], annotation[encoding="application/x-tex"], .option-inner, .dnd-option-text')) score += 70;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+      var isNeutral = /^rgb\((0, 0, 0|255, 255, 255|24[0-9], 24[0-9], 24[0-9]|25[0-5], 25[0-5], 25[0-5])\)$/.test(bg);
+      score += isNeutral ? 20 : 55;
+    }
+    if (bgImg && bgImg !== "none") score += 30;
+    if (/background/.test(inlineStyle)) score += 35;
+    if (radius >= 6) score += 12;
+    if (style && style.cursor === "pointer") score += 30;
+    if (/question|prompt/.test(cls)) score -= 80;
+    if (/selected|active|correct|incorrect/.test(cls)) score += 4;
+    if (rect.width >= window.innerWidth * 0.7 && rect.height >= 60) score += 50;
+    var q = dgNorm(dgQuestionText(result));
+    if (q && dgNorm(txt) === q) score -= 140;
+    return score;
+  }
+
+  function dgPromoteChoiceRoot(el, result) {
+    if (!el) return el;
+    if (dgIsNativeChoiceRoot(el)) return el;
+    var best = el;
+    var bestScore = dgChoiceScore(el, result);
+    var childText = dgNorm(dgTxt(el));
+    var childLen = childText.length;
+    var cur = el;
+    for (var depth = 0; depth < 5 && cur && cur.parentElement; depth++) {
+      cur = cur.parentElement;
+      if (!cur || cur === document.body || cur === document.documentElement || cur.closest("#qs-panel")) break;
+      if (dgIsChoiceGroupShell(cur)) break;
+      var rect = cur.getBoundingClientRect ? cur.getBoundingClientRect() : null;
+      if (!rect) continue;
+      if (rect.width < 90 || rect.height < 28 || rect.height > (dgIsDesktopWide() ? Math.min(window.innerHeight * 0.72, 760) : Math.min(window.innerHeight * 0.45, 360))) continue;
+      var txt = dgNorm(dgTxt(cur));
+      if (!txt) continue;
+      if (childText && txt !== childText && txt.indexOf(childText) < 0) continue;
+      if (childLen && txt.length > childLen * 1.35 + 28) continue;
+      var siblingChoiceBlocks = 0;
+      try {
+        siblingChoiceBlocks = Array.from(cur.children || []).filter(function(kid) {
+          if (!kid || kid === best || (kid.contains && kid.contains(best))) return false;
+          if (!kid.getBoundingClientRect) return false;
+          var kidRect = kid.getBoundingClientRect();
+          var kidTxt = dgTxt(kid);
+          if (!kidTxt || kidTxt.length > 320) return false;
+          return kidRect.width >= rect.width * 0.42 && kidRect.height >= 34;
+        }).length;
+      } catch (_) {}
+      if (siblingChoiceBlocks >= 2) break;
+      var score = dgChoiceScore(cur, result);
+      if (score > bestScore + 18) {
+        best = cur;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function dgFindVisualChoiceRoot(el, result) {
+    if (!el) return null;
+    var baseText = dgNorm(dgChoiceText(el) || dgTxt(el));
+    var cur = el;
+    for (var depth = 0; depth < 5 && cur; depth++) {
+      if (!cur || cur === document.body || cur === document.documentElement || cur.closest('#qs-panel')) break;
+      if (dgIsChoiceGroupShell(cur)) break;
+      var rect = cur.getBoundingClientRect ? cur.getBoundingClientRect() : null;
+      if (!rect || rect.width < 80 || rect.height < 28 || rect.height > Math.min(window.innerHeight * (dgIsDesktopWide() ? 0.72 : 0.45), dgIsDesktopWide() ? 560 : 360)) {
+        cur = cur.parentElement;
+        continue;
+      }
+      var txt = dgNorm(dgChoiceText(cur));
+      if (txt && (!baseText || txt === baseText || txt.indexOf(baseText) >= 0)) {
+        if (dgIsNativeChoiceRoot(cur) || dgLooksLikeChoiceContainer(cur) || dgChoiceScore(cur, result) >= 72) return cur;
+      }
+      cur = cur.parentElement;
+    }
+    return null;
+  }
+
+  function dgNativeChoiceSelectors() {
+    return [
+      '.option.is-selectable', '.option.is-msq', '.question-options-layout .option', '.question-options-layout .option.is-selectable',
+      '[class*="question-options"] .option', '[class*="question-options"] [class*="option"]',
+      '[data-cy="option"]', '[data-testid="option"]', '[data-cy*="option"]', '[data-testid*="option"]',
+      '[class*="answer-option"]', '[class*="AnswerOption"]', '[class*="option-inner"]', '[class*="OptionInner"]',
+      '[class*="mcq-option"]', '[class*="quiz-option"]', '[role="radio"]', '[role="option"]', '[role="checkbox"]',
+      'label[class*="option"]', 'label[class*="Option"]', 'label[class*="answer"]', 'label[class*="Answer"]'
+    ];
+  }
+
+  function dgCollectNativeChoiceRoots(result) {
+    var forcedChoice = dgHasForcedChoiceMode();
+    var qRect = dgRelevantQuestionRect(result);
+    var seen = new Set();
+    var out = [];
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    var nodes = [];
+    try {
+      nodes = Array.from(document.querySelectorAll(nativeSelectorText));
+    } catch (_) {}
+
+    nodes.forEach(function(node) {
+      if (!node || !node.getBoundingClientRect || node.closest('#qs-panel')) return;
+      var root = node;
+      try {
+        if (node.closest) {
+          root = node.closest('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="question-options"] .option, [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], [role="radio"], [role="option"], [role="checkbox"], label, button') || node;
+        }
+      } catch (_) {}
+      root = dgFindVisualChoiceRoot(root, result) || dgPromoteChoiceRoot(root, result);
+      if (!root || !root.getBoundingClientRect || root.closest('#qs-panel') || dgIsChoiceGroupShell(root)) return;
+
+      var rect = root.getBoundingClientRect();
+      var txt = dgChoiceText(root);
+      if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (qRect && !forcedChoice && rect.top < qRect.bottom - 40) return;
+      if (rect.width < window.innerWidth * (dgIsDesktopWide() ? 0.12 : 0.34)) return;
+      if (rect.height < 30 || rect.height > (dgIsDesktopWide() ? 760 : 320)) return;
+
+      var hasNativeMarker = dgIsNativeChoiceRoot(root) || !!(root.querySelector && root.querySelector('#optionText, [id="optionText"], [data-cy="option-text"], [data-testid="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text, annotation[encoding="application/x-tex"]'));
+      if (!hasNativeMarker) return;
+
+      var score = dgChoiceScore(root, result);
+      if (score < (forcedChoice ? 12 : 18)) return;
+
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 6) + '|' + Math.round(rect.left / 6) + '|' + Math.round(rect.width / 6);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(root);
+    });
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgCollectStructuredGridOptions(result) {
+    var nativeRoots = dgCollectNativeChoiceRoots(result);
+    if (nativeRoots.length >= 2) return nativeRoots;
+    if (!dgHasForcedChoiceMode() && dgLooksLikeDragType(result) && dgHasRealDragSignals(result)) return [];
+    var isDesktop = dgIsDesktopWide();
+    var qRect = dgRelevantQuestionRect(result);
+    var containers = [];
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    try {
+      containers = Array.from(document.querySelectorAll('.question-options-layout, .options-grid, .options-container, [class*="question-options"], [class*="options-grid"], [class*="OptionsGrid"], [class*="answer-grid"], [class*="AnswerGrid"], [class*="choices-grid"], [class*="ChoicesGrid"], [class*="answers"], [class*="Answers"], [class*="choices"], [class*="Choices"], [class*="alternatives"], [class*="Alternatives"]'));
+    } catch (_) {}
+
+    function looksLikeGridCard(el) {
+      if (!el || !el.getBoundingClientRect || el.closest('#qs-panel') || dgIsChoiceGroupShell(el)) return false;
+      var rect = el.getBoundingClientRect();
+      var txt = dgChoiceText(el);
+      if (!txt || txt.length > (isDesktop ? 420 : 260) || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return false;
+      if (rect.width < window.innerWidth * (isDesktop ? 0.12 : 0.34)) return false;
+      if (rect.height < 40 || rect.height > (isDesktop ? 760 : 320)) return false;
+      if (qRect && !dgHasForcedChoiceMode() && rect.top < qRect.bottom - 36) return false;
+      var cls = ((el.className && String(el.className)) || '').toLowerCase();
+      var role = ((el.getAttribute && el.getAttribute('role')) || '').toLowerCase();
+      if (/drag|drop|droppable|draggable|blank|target|match|connect/.test(cls) || role === 'textbox') return false;
+      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      return dgIsNativeChoiceRoot(el)
+        || dgLooksLikeChoiceContainer(el)
+        || !!(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || !!(bgImg && bgImg !== 'none')
+        || !!(border && border !== 'rgba(0, 0, 0, 0)');
+    }
+
+    for (var ci = 0; ci < containers.length; ci++) {
+      var container = containers[ci];
+      if (!container || container.closest('#qs-panel')) continue;
+      var pool = [];
+      try {
+        pool = Array.from(container.querySelectorAll(nativeSelectorText));
+      } catch (_) {}
+      if (!pool.length) {
+        pool = Array.from(container.querySelectorAll('button, label, div, article, li, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"]'));
+      }
+      var children = pool.map(function(child) {
+        return dgFindVisualChoiceRoot(child, result) || dgPromoteChoiceRoot(child, result);
+      }).filter(looksLikeGridCard);
+      if (children.length < 2) continue;
+
+      var seen = new Set();
+      var normalized = children.filter(function(el) {
+        var rect = el.getBoundingClientRect();
+        var key = dgNorm(dgChoiceText(el)) + '|' + Math.round(rect.top / 8) + '|' + Math.round(rect.left / 8);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (normalized.length < 2) continue;
+
+      var avgWidth = normalized.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / normalized.length;
+      var similar = normalized.filter(function(el) {
+        return Math.abs(el.getBoundingClientRect().width - avgWidth) <= Math.max(140, avgWidth * 0.72);
+      });
+      if (similar.length >= 2) {
+        return similar.sort(function(a, b) {
+          var ar = a.getBoundingClientRect();
+          var br = b.getBoundingClientRect();
+          return ar.top - br.top || ar.left - br.left;
+        }).slice(0, 8);
+      }
+    }
+
+    return [];
+  }
+
+  function dgCollectViewportChoiceCards(result) {
+    if (!dgHasForcedChoiceMode() && (dgLooksLikeDragType(result) || dgHasRealDragSignals(result))) return [];
+    var isDesktop = dgIsDesktopWide();
+    var qRect = dgRelevantQuestionRect(result);
+    var pool = [];
+    try {
+      pool = Array.from(document.querySelectorAll('button, label, div, article, li, section'));
+    } catch (_) {}
+
+    var seen = new Set();
+    var out = [];
+
+    function hasCardVisual(el) {
+      if (!el) return false;
+      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      var bg = style ? String(style.backgroundColor || '') : '';
+      var bgImg = style ? String(style.backgroundImage || '') : '';
+      var border = style ? String(style.borderColor || '') : '';
+      var shadow = style ? String(style.boxShadow || '') : '';
+      return (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+        || (bgImg && bgImg !== 'none')
+        || (border && border !== 'rgba(0, 0, 0, 0)' && border !== 'transparent')
+        || (shadow && shadow !== 'none');
+    }
+
+    pool.forEach(function(node) {
+      if (!node || !node.getBoundingClientRect || node.closest('#qs-panel') || node.offsetParent === null) return;
+      var el = dgFindVisualChoiceRoot(node, result) || dgPromoteChoiceRoot(node, result);
+      if (!el || !el.getBoundingClientRect || el.closest('#qs-panel') || dgIsChoiceGroupShell(el)) return;
+
+      var rect = el.getBoundingClientRect();
+      var txt = dgChoiceText(el);
+      if (!txt || txt.length > (isDesktop ? 120 : 90) || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (rect.width < window.innerWidth * (isDesktop ? 0.18 : 0.40)) return;
+      if (rect.height < 90 || rect.height > (isDesktop ? 560 : 320)) return;
+      if (rect.top < window.innerHeight * (isDesktop ? 0.42 : 0.40)) return;
+      if (qRect && rect.top < qRect.bottom - 8) return;
+      if (!dgLooksLikeChoiceContainer(el) && !dgIsNativeChoiceRoot(el) && !hasCardVisual(el)) return;
+
+      var score = dgChoiceScore(el, result);
+      if (score < 110) return;
+
+      var key = dgNorm(txt) + '|' + Math.round(rect.top / 8) + '|' + Math.round(rect.left / 8) + '|' + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(el);
+    });
+
+    if (out.length < 2) return [];
+
+    out = out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+
+    var avgWidth = out.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / out.length;
+    var avgHeight = out.reduce(function(sum, el) { return sum + el.getBoundingClientRect().height; }, 0) / out.length;
+    var normalized = out.filter(function(el) {
+      var rect = el.getBoundingClientRect();
+      return Math.abs(rect.width - avgWidth) <= Math.max(160, avgWidth * 0.72)
+        && Math.abs(rect.height - avgHeight) <= Math.max(140, avgHeight * 0.65);
+    });
+
+    return (normalized.length >= 2 ? normalized : out).slice(0, 8);
+  }
+
+  function dgCollectLegacyChoiceOptions(result) {
+    var seen = new Set();
+    var out = [];
+
+    function push(el) {
+      if (!el) return;
+      var promoted = dgPromoteChoiceRoot(el, result);
+      if (!promoted || !promoted.getBoundingClientRect || promoted.closest("#qs-panel")) return;
+      if (dgIsChoiceGroupShell(promoted)) return;
+      var rect = promoted.getBoundingClientRect();
+      var txt = dgChoiceText(promoted);
+      if (!txt || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+      if (rect.width < 40 || rect.height < 24 || rect.height > (dgIsDesktopWide() ? Math.min(window.innerHeight * 0.84, 760) : Math.min(window.innerHeight * 0.38, 320))) return;
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 8) + "|" + Math.round(rect.left / 8) + "|" + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(promoted);
+    }
+
+    var optSelectors = [
+      '.option.is-selectable','[data-testid="option"]','[data-testid="answer-option"]',
+      '[class*="OptionCard"]','[class*="option-card"]','.options-container .option',
+      '[class*="MCQOption"]','[class*="mcq-option"]','.option-item','.answer-option',
+      'button[class*="option"]','[role="option"]','[class*="AnswerOption"]','[class*="answerOption"]',
+      '[class*="choice"]','[class*="Choice"]','[class*="alternative"]','[class*="Alternative"]',
+      '[class*="answer-choice"]','[class*="AnswerChoice"]','[class*="quiz-option"]','[class*="QuizOption"]',
+      '[class*="response-option"]','[class*="ResponseOption"]','[role="radio"]','[role="checkbox"]',
+      'label[class*="option"]','label[class*="Option"]','label[class*="answer"]','label[class*="Answer"]'
+    ];
+
+    for (var si = 0; si < optSelectors.length; si++) {
+      try {
+        var found = document.querySelectorAll(optSelectors[si]);
+        if (found.length >= 2) {
+          Array.from(found).forEach(function(el) {
+            if (el && el.offsetParent !== null && !el.closest("#qs-panel")) push(el);
+          });
+          if (out.length >= 2) break;
+        }
+      } catch (_) {}
+    }
+
+    if (out.length < 2) {
+      var containerSels = ['[class*="options"]', '[class*="Options"]', '[class*="choices"]', '[class*="Choices"]', '[class*="answers"]', '[class*="Answers"]'];
+      for (var ci = 0; ci < containerSels.length; ci++) {
+        try {
+          var containers = document.querySelectorAll(containerSels[ci]);
+          for (var cj = 0; cj < containers.length; cj++) {
+            var container = containers[cj];
+            if (!container || container.closest("#qs-panel")) continue;
+            var kids = container.querySelectorAll('button, [role="button"], [role="option"], [role="radio"], [role="checkbox"], label, [class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"]');
+            Array.from(kids).forEach(function(el) {
+              if (el && el.offsetParent !== null && !el.closest("#qs-panel") && dgChoiceText(el)) push(el);
+            });
+            if (out.length >= 2) break;
+          }
+          if (out.length >= 2) break;
+        } catch (_) {}
+      }
+    }
+
+    if (out.length < 2) {
+      var mainArea = document.querySelector('main, [class*="game"], [class*="Game"], [class*="quiz"], [class*="Quiz"]') || document.body;
+      if (mainArea) {
+        var blockCandidates = Array.from(mainArea.querySelectorAll('button, label, div, article, li, section')).filter(function(el) {
+          if (!el || !el.getBoundingClientRect || !el.offsetParent || el.closest("#qs-panel")) return false;
+          var txt = dgChoiceText(el);
+          if (!txt || txt.length < 1 || txt.length > 120 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return false;
+          var rect = el.getBoundingClientRect();
+          var isDesktop = dgIsDesktopWide();
+          if (rect.width < window.innerWidth * (isDesktop ? 0.14 : 0.40) || rect.height < 36 || rect.height > (isDesktop ? Math.min(window.innerHeight * 0.84, 760) : 220)) return false;
+          if (rect.top < window.innerHeight * (isDesktop ? 0.18 : 0.38)) return false;
+          var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+          var bg = style ? String(style.backgroundColor || "") : "";
+          var bgImg = style ? String(style.backgroundImage || "") : "";
+          var border = style ? String(style.borderColor || "") : "";
+          var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+          return role === 'button' || role === 'radio' || role === 'option' || role === 'checkbox' || el.tagName === 'BUTTON' || el.tagName === 'LABEL' || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') || bgImg !== 'none' || (border && border !== 'rgba(0, 0, 0, 0)');
+        });
+
+        if (blockCandidates.length >= 2) {
+          var avgWidth = blockCandidates.reduce(function(sum, el) { return sum + el.getBoundingClientRect().width; }, 0) / blockCandidates.length;
+          blockCandidates.filter(function(el) {
+            return Math.abs(el.getBoundingClientRect().width - avgWidth) < Math.max(40, avgWidth * 0.24);
+          }).slice(0, 8).forEach(push);
+        }
+      }
+    }
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgCollectChoiceOptions(result) {
+    var nativeChoiceRoots = dgCollectNativeChoiceRoots(result);
+    if (nativeChoiceRoots.length >= 2) return nativeChoiceRoots;
+    if (!dgHasForcedChoiceMode() && dgLooksLikeDragType(result) && dgHasRealDragSignals(result)) return [];
+    var seen = new Set();
+    var out = [];
+    var forcedChoice = dgHasForcedChoiceMode();
+    var qRect = dgRelevantQuestionRect(result);
+    var nativeSelectorText = dgNativeChoiceSelectors().join(', ');
+    var structuredGrid = dgCollectStructuredGridOptions(result);
+    if (structuredGrid.length >= 2) return structuredGrid;
+    var viewportCards = dgCollectViewportChoiceCards(result);
+    if (viewportCards.length >= 2) return viewportCards;
+    var nativeNodes = [];
+    var seededNodes = [];
+    var textSeedNodes = [];
+    try {
+      seededNodes = Array.isArray(result && result.elements) ? result.elements.filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var txt = dgChoiceText(el);
+        return !!txt && !dgIsActionText(txt) && !dgIsPlaceholderSelectText(txt);
+      }) : [];
+    } catch (_) {}
+    try {
+      textSeedNodes = Array.from(document.querySelectorAll('#optionText, [id="optionText"], [data-cy="option-text"], [data-testid="option-text"], [class*="option-text"], [class*="OptionText"], .option-inner, .dnd-option-text, annotation[encoding="application/x-tex"]'));
+    } catch (_) {}
+    try {
+      nativeNodes = Array.from(document.querySelectorAll(nativeSelectorText));
+    } catch (_) {}
+    var nodes = seededNodes.concat(textSeedNodes).concat(nativeNodes).concat(Array.from(document.querySelectorAll('button, label, div, article, li, span, section, [role="button"], [role="radio"], [role="option"], [role="checkbox"], [class*="option"], [class*="Option"], [class*="choice"], [class*="Choice"], [class*="answer"], [class*="Answer"], [class*="alternative"], [class*="Alternative"], [class*="card"], [class*="Card"], [data-testid], [data-answer], [data-option], [data-index]')));
+
+    function toClickable(el) {
+      if (!el) return null;
+      if (el.closest) {
+        var nativeRoot = el.closest('.option.is-selectable, .option.is-msq, .question-options-layout .option, [class*="question-options"] .option, [class*="answer-option"], [class*="AnswerOption"], [class*="mcq-option"], [class*="quiz-option"], [role="radio"], [role="option"], [role="checkbox"], label, button');
+        if (nativeRoot && nativeRoot !== document.body && nativeRoot !== document.documentElement && !nativeRoot.closest('#qs-panel')) {
+          return dgPromoteChoiceRoot(nativeRoot, result);
+        }
+      }
+      if (el.closest) {
+        var semanticRoot = el.closest('[class*="option"], [class*="Option"], [class*="answer"], [class*="Answer"], [class*="choice"], [class*="Choice"], [class*="alternative"], [class*="Alternative"], [class*="mcq"], [class*="quiz-option"], [data-testid*="option"], [data-cy*="option"]');
+        if (semanticRoot && semanticRoot !== document.body && semanticRoot !== document.documentElement && !semanticRoot.closest('#qs-panel') && !dgIsChoiceGroupShell(semanticRoot)) {
+          return dgPromoteChoiceRoot(semanticRoot, result);
+        }
+      }
+      var visualRoot = dgFindVisualChoiceRoot(el, result);
+      if (visualRoot) return visualRoot;
+      if (el.closest) {
+        var root = el.closest('button, label, [role="button"], [role="radio"], [role="option"], [role="checkbox"]');
+        if (root && root !== document.body && root !== document.documentElement) return dgPromoteChoiceRoot(root, result);
+      }
+      return dgPromoteChoiceRoot(el, result);
+    }
+
+    nodes.forEach(function(node) {
+      var el = toClickable(node);
+      if (!el || el.closest("#qs-panel")) return;
+      var elRect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+      if (!el.offsetParent && !(elRect && elRect.width > 0 && elRect.height > 0)) return;
+      var txt = dgChoiceText(el);
+      var rect = elRect || { top: 0, left: 0, width: 0, height: 0, bottom: 0 };
+      if (qRect && !forcedChoice) {
+        if (rect.top < qRect.bottom - 24) return;
+        if (Math.abs((rect.left + rect.width / 2) - (window.innerWidth / 2)) > window.innerWidth * 0.50) return;
+      }
+      var isNativeChoice = dgIsNativeChoiceRoot(el);
+      var isLargeColoredBlock = rect.width >= (dgIsDesktopWide() ? window.innerWidth * 0.14 : window.innerWidth * 0.38) && rect.height >= 36 && txt.length <= (dgIsDesktopWide() ? 420 : 300);
+      if (!dgLooksLikeChoiceContainer(el) && !isLargeColoredBlock && !isNativeChoice) return;
+      var score = dgChoiceScore(el, result);
+      if (score < (isNativeChoice || forcedChoice ? 24 : 48)) return;
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 6) + "|" + Math.round(rect.left / 6) + "|" + Math.round(rect.width / 6);
+      if (seen.has(key)) return;
+
+      for (var i = 0; i < out.length; i++) {
+        var prev = out[i];
+        var prevRect = prev.getBoundingClientRect();
+        var sameText = dgNorm(dgChoiceText(prev)) === dgNorm(txt);
+        var sameSpot = Math.abs(prevRect.top - rect.top) < 20 && Math.abs(prevRect.left - rect.left) < 20;
+        var nested = prev.contains(el) || el.contains(prev);
+        if (sameText && (sameSpot || nested)) {
+          if (dgChoiceScore(el, result) > dgChoiceScore(prev, result)) out[i] = el;
+          seen.add(key);
+          return;
+        }
+      }
+
+      seen.add(key);
+      out.push(el);
+    });
+
+    out = out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+
+    if (out.length > 8) {
+      out = out.filter(function(el) {
+        var rect = el.getBoundingClientRect();
+        return dgIsNativeChoiceRoot(el) || (rect.width >= window.innerWidth * (dgIsDesktopWide() ? 0.12 : 0.34) && rect.height >= 34);
+      });
+    }
+
+    if (out.length < 2 && seededNodes.length >= 2) {
+      out = seededNodes.map(function(el) { return toClickable(el); }).filter(function(el) {
+        if (!el || !el.getBoundingClientRect || el.closest("#qs-panel")) return false;
+        var txt = dgChoiceText(el);
+        return !!txt && !dgIsActionText(txt) && !dgIsPlaceholderSelectText(txt);
+      }).sort(function(a, b) {
+        var ar = a.getBoundingClientRect();
+        var br = b.getBoundingClientRect();
+        return ar.top - br.top || ar.left - br.left;
+      });
+    }
+
+    if (out.length < 2) {
+      var legacyOut = dgCollectLegacyChoiceOptions(result);
+      if (legacyOut.length >= 2) out = legacyOut;
+    }
+
+    return out;
+  }
+
+  function dgScoreTrigger(el) {
+    if (!el || !el.getBoundingClientRect) return -999;
+    var txt = dgTxt(el);
+    var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+    var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+    var rect = el.getBoundingClientRect();
+    var score = 0;
+    if (dgIsPlaceholderSelectText(txt)) score += 280;
+    if (popup === "listbox" || role === "combobox") score += 120;
+    if (el.tagName === "BUTTON") score += 18;
+    if (el.tagName === "SELECT") score += 70;
+    if (rect.width >= 110 && rect.height >= 30 && rect.height <= 96) score += 20;
+    if (txt.length > 80) score -= 40;
+    return score;
+  }
+
+  function dgCollectSelectTriggers() {
+    var seen = new Set();
+    var out = [];
+    var pool = Array.from(document.querySelectorAll('button.options-dropdown, button[aria-haspopup="listbox"], [role="combobox"], [aria-haspopup="listbox"], select, [class*="select"], [class*="Select"], [class*="dropdown"], [class*="Dropdown"]'));
+
+    function push(el) {
+      if (!el || !el.offsetParent || el.closest("#qs-panel")) return;
+      var txt = dgTxt(el);
+      var rect = el.getBoundingClientRect();
+      if (!txt || dgIsActionText(txt)) return;
+      if (rect.width < 100 || rect.height < 28 || rect.height > 96) return;
+
+      var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+      var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+      var interactive = el.tagName === "SELECT" || el.tagName === "BUTTON" || popup === "listbox" || role === "combobox";
+      if (!interactive && !dgIsPlaceholderSelectText(txt)) return;
+
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 8) + "|" + Math.round(rect.left / 8) + "|" + Math.round(rect.width / 8);
+      if (seen.has(key)) return;
+
+      for (var i = 0; i < out.length; i++) {
+        var ex = out[i];
+        var exTxt = dgTxt(ex);
+        var exRect = ex.getBoundingClientRect();
+        var sameText = dgNorm(exTxt) === dgNorm(txt);
+        var nested = ex.contains(el) || el.contains(ex);
+        var sameSpot = Math.abs(exRect.top - rect.top) < 18 && Math.abs(exRect.left - rect.left) < 18;
+        if (sameText && (nested || sameSpot)) {
+          if (dgScoreTrigger(el) > dgScoreTrigger(ex)) out[i] = el;
+          seen.add(key);
+          return;
+        }
+      }
+
+      seen.add(key);
+      out.push(el);
+    }
+
+    pool.forEach(push);
+    return out.sort(function(a, b) {
+      return dgScoreTrigger(b) - dgScoreTrigger(a) || a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+    });
+  }
+
+  function dgGetMenuItems(trigger) {
+    var out = [];
+    var seen = new Set();
+    var trigRect = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
+    var selectors = [
+      '[role="option"]','[role="menuitem"]','[role="menuitemradio"]','[role="menuitemcheckbox"]','li[role="option"]',
+      '[class*="dropdown"] [class*="option"]','[class*="Dropdown"] [class*="option"]','[class*="menu"] [class*="item"]','[class*="Menu"] [class*="item"]',
+      '[class*="popup"] [class*="option"]','[class*="Popup"] [class*="option"]','[class*="listbox"] > *','[class*="Listbox"] > *',
+      '[data-radix-popper-content-wrapper] [role="option"]','[data-radix-popper-content-wrapper] [data-value]','[data-value]'
+    ];
+
+    function add(el) {
+      if (!el || !el.offsetParent || el.closest("#qs-panel")) return;
+      if (trigger && (el === trigger || (trigger.contains && trigger.contains(el)) || (el.contains && el.contains(trigger)))) return;
+
+      var txt = dgTxt(el);
+      if (!txt || txt.length > 80 || dgIsActionText(txt) || dgIsPlaceholderSelectText(txt)) return;
+
+      var role = ((el.getAttribute && el.getAttribute("role")) || "").toLowerCase();
+      var popup = ((el.getAttribute && el.getAttribute("aria-haspopup")) || "").toLowerCase();
+      if (popup === "listbox" || role === "combobox") return;
+
+      var rect = el.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 20 || rect.height > 96) return;
+      if (trigRect) {
+        var center = rect.left + rect.width / 2;
+        var trigCenter = trigRect.left + trigRect.width / 2;
+        if (Math.abs(center - trigCenter) > Math.max(trigRect.width * 1.4, 220)) return;
+        if (rect.top < trigRect.top - 64 || rect.top > trigRect.bottom + Math.min(window.innerHeight * 0.82, 620)) return;
+      }
+
+      var key = dgNorm(txt) + "|" + Math.round(rect.top / 6) + "|" + Math.round(rect.left / 6);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(el);
+    }
+
+    selectors.forEach(function(sel) {
+      try { document.querySelectorAll(sel).forEach(add); } catch (_) {}
+    });
+
+    return out.sort(function(a, b) {
+      var ar = a.getBoundingClientRect();
+      var br = b.getBoundingClientRect();
+      return ar.top - br.top || ar.left - br.left;
+    });
+  }
+
+  function dgUniqueOptions(items) {
+    var seen = new Set();
+    return (items || []).map(function(el) { return dgTxt(el); }).filter(function(txt) {
+      var key = dgNorm(txt);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function dgShouldOverrideResult(result, triggers) {
+    if (!triggers.length) return false;
+    if (!result || !result.questionType) return true;
+    if (result.questionType === "unknown" || result.questionType === "dropdown") return true;
+    var opts = Array.isArray(result.options) ? result.options : [];
+    if (!opts.length && triggers.length > 0) return true;
+    if (opts.some(dgIsPlaceholderSelectText)) return true;
+    if (opts.length > 1 && opts.every(function(opt) { return dgNorm(opt) === dgNorm(opts[0]); })) return true;
+    if ((result.fillBlanks || []).length && triggers.length !== (result.fillBlanks || []).length) return true;
+    return false;
+  }
+
+  var __dgExtract = extractPageContent;
+  extractPageContent = function() {
+    var result = __dgExtract.apply(this, arguments) || {};
+    try {
+      var forcedMode = dgForcedMode();
+      if (forcedMode === "drag" && (dgHasRealDragSignals(result) || dgLooksLikeDragType(result))) {
+        result.questionType = /match|connect/.test(dgNorm((result && (result.questionType || result.type || "")) || "")) ? "match" : "drag";
+        result.type = result.questionType;
+        result.selectMode = "drag";
+        result.dynamicSelect = false;
+        log("DRAG FORCE v2.6.0: type=" + result.questionType, "inf");
+        return result;
+      }
+      var triggers = dgCollectSelectTriggers();
+      if (triggers.length) {
+        var placeholderTriggers = triggers.filter(function(el) { return dgIsPlaceholderSelectText(dgTxt(el)); });
+        var targetTriggers = placeholderTriggers.length ? placeholderTriggers : triggers;
+        var menuItems = dgGetMenuItems(targetTriggers[0]);
+        var options = dgUniqueOptions(menuItems);
+
+        if (dgHasForcedSelectMode() || dgShouldOverrideResult(result, targetTriggers) || targetTriggers.length > 1) {
+          var forcedMultiSelect = forcedMode === "multi_select";
+          result.questionType = forcedMultiSelect || targetTriggers.length > 1 ? "multi" : "single";
+          result.type = result.questionType;
+          result.selectMode = forcedMultiSelect || targetTriggers.length > 1 ? "multi_select" : "single_select";
+          result.dynamicSelect = true;
+          result.inputElement = targetTriggers[0];
+          result.fillBlanks = targetTriggers.slice();
+          result.elements = menuItems.slice();
+          result.options = options.slice();
+          result.isWaygroundSelectPatched = true;
+          log("SELECT PATCH v2.6.0: mode=" + result.selectMode + " blanks=" + result.fillBlanks.length + " opts=" + result.options.length + (forcedMode !== "auto" ? " forced=" + forcedMode : ""), "inf");
+        }
+      }
+
+      var choiceEls = dgCollectChoiceOptions(result);
+      if (choiceEls.length) {
+        var choiceOptions = dgUniqueOptions(choiceEls);
+        var falseDragDesktop = dgIsDesktopWide() && dgLooksLikeDragType(result) && !dgHasRealDragSignals(result);
+        var shouldPatchChoices = choiceEls.length >= 2 && (
+          dgHasForcedChoiceMode() ||
+          !result.questionType ||
+          result.questionType === "unknown" ||
+          result.questionType === "dropdown" ||
+          falseDragDesktop ||
+          !Array.isArray(result.options) ||
+          !result.options.length ||
+          result.options.every(function(opt) { return dgIsPlaceholderSelectText(opt); })
+        );
+        if (shouldPatchChoices && forcedMode !== "drag") {
+          var isMulti = forcedMode === "multi_choice" ? true : dgIsMultiQuestion(result);
+          result.questionType = isMulti ? "multi" : "single";
+          result.type = result.questionType;
+          result.selectMode = isMulti ? "multi_choice" : "single_choice";
+          result.dynamicSelect = false;
+          result.inputElement = choiceEls[0];
+          result.fillBlanks = [];
+          result.elements = choiceEls.slice();
+          result.options = choiceOptions.slice();
+          result.isWaygroundChoicePatched = true;
+          log("CHOICE PATCH v2.6.0: mode=" + result.selectMode + " opts=" + result.options.length + (forcedMode !== "auto" ? " forced=" + forcedMode : ""), "inf");
+        }
+      } else if (dgHasForcedChoiceMode()) {
+        log("CHOICE PATCH miss v2.6.0: forced=" + forcedMode + " type=" + String(result.questionType || "unknown"), "wrn");
+      }
+
+      if (forcedMode !== 'auto' && window.__dgLastEmbeddedDetectionMode !== forcedMode) {
+        window.__dgLastEmbeddedDetectionMode = forcedMode;
+        log("DETECTION EMBED v2.6.0: mode=" + forcedMode, "inf");
+      }
+    } catch (e) {
+      log("SELECT PATCH extract error: " + (e && e.message ? e.message : e), "wrn");
+    }
+    return result;
+  };
+
+  function dgUiModeFromLabel(label) {
+    var txt = dgNorm(label);
+    if (/^auto$/.test(txt)) return 'auto';
+    if (/^alternativa|single|choice|mcq|radio/.test(txt)) return 'choice';
+    if (/multi|multipla|múltipla/.test(txt)) return 'multi_choice';
+    if (/arrastar|drag|soltar|match|connect/.test(txt)) return 'drag';
+    if (/multi.?select/.test(txt)) return 'multi_select';
+    if (/select|dropdown|combobox|lacuna|blank/.test(txt)) return 'select';
+    if (/v\/f|verdadeiro|falso|true false/.test(txt)) return 'true_false';
+    if (/aberta|open|texto/.test(txt)) return 'open';
+    if (/enquete|poll/.test(txt)) return 'poll';
+    return '';
+  }
+
+  function dgFindDetectionButtons(panel) {
+    return Array.from(panel.querySelectorAll('button, [role="button"], [role="tab"]')).filter(function(el) {
+      var mode = dgUiModeFromLabel(dgTxt(el));
+      return !!mode && !el.closest('.dg-detection-embed-bar');
+    });
+  }
+
+  function dgPersistEmbeddedDetection(mode, btn) {
+    if (!mode) return;
+    try {
+      if (!S.settings) S.settings = {};
+      S.settings.detectionMode = mode;
+      S.settings.forceDetectionMode = mode;
+      S.settings.detectionEmbeddedAt = new Date().toISOString();
+      try { localStorage.setItem('dgly_detection_mode', mode); } catch (_) {}
+      var client = window.DoglyWebhook && window.DoglyWebhook.createClient ? window.DoglyWebhook.createClient({}) : null;
+      var payload = Object.assign({}, S.settings, {
+        detectionMode: mode,
+        forceDetectionMode: mode,
+        detectionEmbeddedAt: S.settings.detectionEmbeddedAt,
+      });
+      var done = function(ok) {
+        if (btn) {
+          btn.dataset.pending = '0';
+          btn.textContent = ok ? ('✓ Embutido: ' + mode) : 'Embutir detecção';
+          btn.style.opacity = '1';
+        }
+        setStatus('Detecção embutida: ' + mode, ok ? 'suc' : 'wrn');
+        log('DETECTION SAVE v2.6.0: ' + mode + ' ' + (ok ? 'ok' : 'fallback'), ok ? 'suc' : 'wrn');
+        var panel = document.querySelector('#qs-panel');
+        var detectBtn = panel ? Array.from(panel.querySelectorAll('button')).find(function(el) { return /detectar|detect/.test(dgNorm(dgTxt(el))); }) : null;
+        if (detectBtn) setTimeout(function() { try { detectBtn.click(); } catch (_) {} }, 120);
+      };
+      if (client && client.saveConfig) {
+        if (btn) {
+          btn.textContent = 'Embutindo...';
+          btn.style.opacity = '0.82';
+        }
+        Promise.resolve(client.saveConfig(payload)).then(function(res) {
+          done(!res || res.success !== false);
+        }).catch(function() {
+          done(false);
+        });
+      } else {
+        done(false);
+      }
+    } catch (_) {}
+  }
+
+  function dgInjectDetectionEmbedUi() {
+    var panel = document.querySelector('#qs-panel');
+    if (!panel) return;
+    var buttons = dgFindDetectionButtons(panel);
+    if (buttons.length < 2) return;
+    var host = buttons[0].parentElement;
+    if (!host || !host.parentElement) return;
+    var bar = host.parentElement.querySelector('.dg-detection-embed-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'dg-detection-embed-bar';
+      bar.style.display = 'flex';
+      bar.style.alignItems = 'center';
+      bar.style.justifyContent = 'space-between';
+      bar.style.gap = '10px';
+      bar.style.marginTop = '12px';
+      bar.style.padding = '10px 12px';
+      bar.style.borderRadius = '14px';
+      bar.style.border = '1px solid rgba(123,92,255,.28)';
+      bar.style.background = 'linear-gradient(135deg, rgba(20,24,36,.92), rgba(51,30,92,.88))';
+      bar.style.boxShadow = '0 12px 28px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.06)';
+
+      var info = document.createElement('div');
+      info.className = 'dg-detection-embed-info';
+      info.style.display = 'flex';
+      info.style.flexDirection = 'column';
+      info.style.minWidth = '0';
+
+      var title = document.createElement('strong');
+      title.textContent = 'Embutir detecção';
+      title.style.fontSize = '12px';
+      title.style.color = '#f8faff';
+
+      var meta = document.createElement('span');
+      meta.className = 'dg-detection-embed-meta';
+      meta.textContent = 'Selecione um modo estável e aplique neste script';
+      meta.style.fontSize = '11px';
+      meta.style.color = 'rgba(222,231,255,.72)';
+      meta.style.lineHeight = '1.35';
+
+      var apply = document.createElement('button');
+      apply.type = 'button';
+      apply.className = 'dg-detection-embed-action';
+      apply.textContent = 'Embutir detecção';
+      apply.style.border = '0';
+      apply.style.cursor = 'pointer';
+      apply.style.padding = '10px 14px';
+      apply.style.borderRadius = '12px';
+      apply.style.fontWeight = '700';
+      apply.style.fontSize = '12px';
+      apply.style.color = '#ffffff';
+      apply.style.whiteSpace = 'nowrap';
+      apply.style.background = 'linear-gradient(135deg, #7c3aed, #22c55e)';
+      apply.style.boxShadow = '0 10px 22px rgba(124,58,237,.28)';
+      apply.addEventListener('click', function() {
+        var selected = apply.dataset.selectedMode || (S.settings && S.settings.pendingDetectionMode) || (S.settings && S.settings.detectionMode) || 'auto';
+        dgPersistEmbeddedDetection(selected, apply);
+      });
+
+      info.appendChild(title);
+      info.appendChild(meta);
+      bar.appendChild(info);
+      bar.appendChild(apply);
+      host.parentElement.appendChild(bar);
+    }
+
+    var actionBtn = bar.querySelector('.dg-detection-embed-action');
+    var metaEl = bar.querySelector('.dg-detection-embed-meta');
+    buttons.forEach(function(btn) {
+      if (btn.dataset.dgEmbedHooked === '1') return;
+      btn.dataset.dgEmbedHooked = '1';
+      btn.addEventListener('click', function() {
+        var mode = dgUiModeFromLabel(dgTxt(btn));
+        if (!mode) return;
+        if (!S.settings) S.settings = {};
+        S.settings.pendingDetectionMode = mode;
+        if (actionBtn) actionBtn.dataset.selectedMode = mode;
+        if (actionBtn) actionBtn.textContent = 'Embutir: ' + mode;
+        if (metaEl) metaEl.textContent = 'Modo selecionado: ' + mode + ' · será salvo neste script';
+      }, true);
+    });
+
+    var currentMode = (S.settings && (S.settings.pendingDetectionMode || S.settings.detectionMode)) || 'auto';
+    if (actionBtn && !actionBtn.dataset.selectedMode) actionBtn.dataset.selectedMode = currentMode;
+    if (metaEl) metaEl.textContent = 'Modo atual: ' + currentMode + ' · clique em Embutir para forçar';
+  }
+
+  setTimeout(dgInjectDetectionEmbedUi, 900);
+  setInterval(dgInjectDetectionEmbedUi, 1500);
+
+  function dgParseAnswers(answer, blanksCount) {
+    var raw = String(answer || "").trim();
+    if (!raw) return [];
+    var lines = raw.split(/\n+/).map(function(v) { return v.trim(); }).filter(Boolean);
+    if (lines.length === 1 && blanksCount > 1) {
+      lines = raw.split(/[;,|]+/).map(function(v) { return v.trim(); }).filter(Boolean);
+    }
+    if (lines.length === 1 && blanksCount > 1) {
+      var tf = raw.match(/(verdadeiro|falso|true|false|v\/f|v|f)/ig);
+      if (tf && tf.length > 1) lines = tf;
+    }
+    return lines.map(function(v) { return v.replace(/^\s*([A-Z]|\d+)\s*[).:-]?\s*/i, "").trim(); }).filter(Boolean);
+  }
+
+  function dgItemScore(itemText, answerText) {
+    var item = dgNorm(itemText);
+    var ans = dgNorm(answerText);
+    if (!item || !ans) return -1;
+    if (item === ans) return 1000;
+    var tfTrue = /^(true|verdadeiro|v|sim|yes)$/i;
+    var tfFalse = /^(false|falso|f|nao|não|no)$/i;
+    if (tfTrue.test(answerText) && tfTrue.test(itemText)) return 950;
+    if (tfFalse.test(answerText) && tfFalse.test(itemText)) return 950;
+    if (item.indexOf(ans) >= 0 || ans.indexOf(item) >= 0) return 820 - Math.abs(item.length - ans.length);
+    var aWords = ans.split(/\s+/).filter(Boolean);
+    var iWords = item.split(/\s+/).filter(Boolean);
+    var common = aWords.filter(function(w) { return iWords.indexOf(w) >= 0; }).length;
+    if (!common) return -1;
+    return Math.round((common / Math.max(aWords.length, iWords.length, 1)) * 700);
+  }
+
+  function dgResolveMenuItem(items, answerText, usedMap) {
+    if (!items || !items.length) return null;
+    var best = null;
+    var bestScore = -1;
+    var letterMatch = String(answerText || "").match(/^\s*([A-Da-d])\s*[).\s]?/);
+    if (letterMatch) {
+      var idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < items.length && !(usedMap && usedMap[idx])) return { el: items[idx], idx: idx, label: dgTxt(items[idx]) };
+    }
+    for (var i = 0; i < items.length; i++) {
+      if (usedMap && usedMap[i]) continue;
+      var score = dgItemScore(dgTxt(items[i]), answerText);
+      if (score > bestScore) {
+        best = items[i];
+        bestScore = score;
+      }
+    }
+    if (!best || bestScore < 0) return null;
+    return { el: best, idx: items.indexOf(best), label: dgTxt(best) };
+  }
+
+  function dgResolveChoiceElement(items, answerText, usedMap) {
+    if (!items || !items.length) return null;
+    var best = null;
+    var bestScore = -1;
+    var letterMatch = String(answerText || "").match(/^\s*([A-Da-d])\s*[).\s-]?/);
+    if (letterMatch) {
+      var idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < items.length && !(usedMap && usedMap[idx])) return { el: items[idx], idx: idx, label: dgTxt(items[idx]) };
+    }
+    for (var i = 0; i < items.length; i++) {
+      if (usedMap && usedMap[i]) continue;
+      var label = dgChoiceText(items[i]).replace(/^\s*([A-Z]|\d+)\s*[).:-]\s*/i, "").trim();
+      var score = dgItemScore(label, answerText);
+      if (score > bestScore) {
+        best = items[i];
+        bestScore = score;
+      }
+    }
+    if (!best || bestScore < 0) return null;
+    return { el: best, idx: items.indexOf(best), label: dgChoiceText(best) };
+  }
+
+  function dgClickChoice(el, done) {
+    if (!el) return done(false);
+    try { highlight(el); } catch (_) {}
+    try { el.click(); } catch (_) {}
+    setTimeout(function() {
+      done(true);
+    }, 80);
+  }
+
+  function dgOpenAndPick(trigger, answerText, done, usedMap) {
+    if (!trigger) {
+      done(false, answerText);
+      return;
+    }
+    try { highlight(trigger); } catch (_) {}
+    try { trigger.click(); } catch (_) {}
+    setTimeout(function() {
+      var items = dgGetMenuItems(trigger);
+      var resolved = dgResolveMenuItem(items, answerText, usedMap);
+      if (resolved && resolved.el) {
+        try { highlight(resolved.el); } catch (_) {}
+        try { resolved.el.click(); } catch (_) {}
+        if (usedMap) usedMap[resolved.idx] = true;
+        done(true, resolved.label || answerText);
+      } else {
+        done(false, answerText);
+      }
+    }, 280);
+  }
+
+  var __dgApply = applyAnswer;
+  applyAnswer = function(data, answer) {
+    try {
+      if (data && data.isWaygroundChoicePatched && Array.isArray(data.elements) && data.elements.length) {
+        var choiceParts = dgParseAnswers(answer, data.questionType === "multi" ? data.elements.length : 1);
+        var choiceUsed = {};
+        if ((data.questionType === "multi" || data.selectMode === "multi_choice") && choiceParts.length > 1) {
+          var cp = 0;
+          var clicked = 0;
+          (function nextChoice() {
+            if (cp >= choiceParts.length) {
+              setStatus(clicked + " alternativas marcadas", clicked > 0 ? "suc" : "wrn");
+              log("CHOICE MULTI v2.6.0: marcadas=" + clicked, clicked > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && clicked > 0) setTimeout(clickSubmit, 850);
+              return;
+            }
+            var resolvedChoice = dgResolveChoiceElement(data.elements, choiceParts[cp], choiceUsed);
+            if (!resolvedChoice) {
+              log("CHOICE MULTI miss: " + choiceParts[cp], "wrn");
+              cp++;
+              return setTimeout(nextChoice, 120);
+            }
+            choiceUsed[resolvedChoice.idx] = true;
+            dgClickChoice(resolvedChoice.el, function(ok) {
+              if (ok) clicked++;
+              log("CHOICE[" + (cp + 1) + "] " + (ok ? "ok" : "fail") + ": " + resolvedChoice.label, ok ? "suc" : "wrn");
+              cp++;
+              setTimeout(nextChoice, 150);
+            });
+          })();
+          return;
+        }
+
+        var wantedChoice = choiceParts[0] || String(answer || "").trim();
+        var resolvedSingleChoice = dgResolveChoiceElement(data.elements, wantedChoice, choiceUsed);
+        if (resolvedSingleChoice && resolvedSingleChoice.el) {
+          dgClickChoice(resolvedSingleChoice.el, function(ok) {
+            setStatus("Alternativa: " + String(resolvedSingleChoice.label || wantedChoice).substring(0, 60), ok ? "suc" : "wrn");
+            log("CHOICE v2.6.0: " + (ok ? "respondido" : "falhou") + " -> " + String(resolvedSingleChoice.label || wantedChoice).substring(0, 60), ok ? "suc" : "wrn");
+            if (S.settings.autoSubmit && ok) setTimeout(clickSubmit, 850);
+          });
+          return;
+        }
+      }
+
+      if (data && (data.selectMode || data.isWaygroundSelectPatched || (data.dynamicSelect && (data.inputElement || (data.fillBlanks && data.fillBlanks.length))))) {
+        var blanks = Array.isArray(data.fillBlanks) && data.fillBlanks.length ? data.fillBlanks.filter(Boolean) : (data.inputElement ? [data.inputElement] : []);
+        if (!blanks.length) return __dgApply.apply(this, arguments);
+
+        var parts = dgParseAnswers(answer, blanks.length);
+        var used = {};
+
+        if (blanks.length > 1) {
+          var idx = 0;
+          var okCount = 0;
+          (function nextBlank() {
+            if (idx >= blanks.length) {
+              setStatus(okCount + "/" + blanks.length + " selects preenchidos", okCount > 0 ? "suc" : "wrn");
+              log("MULTI SELECT v2.6.0: preenchidos=" + okCount + "/" + blanks.length, okCount > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && okCount > 0) setTimeout(clickSubmit, 900);
+              return;
+            }
+            var desired = parts[idx] || parts[0] || String(answer || "").trim();
+            dgOpenAndPick(blanks[idx], desired, function(ok, label) {
+              if (ok) okCount++;
+              log("SELECT[" + (idx + 1) + "] " + (ok ? "ok" : "fail") + ": " + String(label || desired).substring(0, 60), ok ? "suc" : "wrn");
+              idx++;
+              setTimeout(nextBlank, ok ? 220 : 160);
+            });
+          })();
+          return;
+        }
+
+        if ((data.questionType === "multi" || data.selectMode === "multi_select") && parts.length > 1) {
+          var p = 0;
+          var selected = 0;
+          (function nextItem() {
+            if (p >= parts.length) {
+              setStatus(selected + " opcoes selecionadas", selected > 0 ? "suc" : "wrn");
+              log("MULTI SELECT options v2.6.0: selecionadas=" + selected, selected > 0 ? "suc" : "wrn");
+              if (S.settings.autoSubmit && selected > 0) setTimeout(clickSubmit, 900);
+              return;
+            }
+            dgOpenAndPick(blanks[0], parts[p], function(ok) {
+              if (ok) selected++;
+              p++;
+              setTimeout(nextItem, ok ? 220 : 160);
+            }, used);
+          })();
+          return;
+        }
+
+        var wanted = parts[0] || String(answer || "").trim();
+        dgOpenAndPick(blanks[0], wanted, function(ok, label) {
+          setStatus((data.selectMode === "multi_select" ? "Multi Select" : "Select") + ": " + String(label || wanted).substring(0, 60), ok ? "suc" : "wrn");
+          log("SELECT v2.6.0: " + (ok ? "respondido" : "sem match") + " -> " + String(label || wanted).substring(0, 60), ok ? "suc" : "wrn");
+          if (S.settings.autoSubmit && ok) setTimeout(clickSubmit, 850);
+        });
+        return;
+      }
+    } catch (e) {
+      log("SELECT PATCH apply error: " + (e && e.message ? e.message : e), "wrn");
+    }
+    return __dgApply.apply(this, arguments);
+  };
+})();
 })();
