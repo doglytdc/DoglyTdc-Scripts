@@ -1,0 +1,1 @@
+javascript:(function(){var s=document.createElement('script');s.src='https://doglytdc.site/DoglyTdc%20Script/PoxelIO.bookmarklet.js?'+Date.now();document.body.appendChild(s);})();
