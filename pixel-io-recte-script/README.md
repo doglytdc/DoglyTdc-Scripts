@@ -4,4 +4,4 @@ Recte V3.2.4 para Poxel.io adaptado como bookmarklet (v5). Pipeline em 4 estági
 
 - **Categoria:** web-hack
 - **Tipo:** bookmarklet
-- **Sincronizado em:** 2026-04-22T21:16:01.201Z
+- **Sincronizado em:** 2026-04-22T21:16:06.823Z
